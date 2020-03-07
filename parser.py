@@ -1,11 +1,14 @@
+import json
 from parsimonious.grammar import Grammar
 from parsimonious.nodes import NodeVisitor
 
 
 grammar = Grammar(
     """
-    dockerfile            = (comment / from_command / ws)*
+    dockerfile            = (comment / from_command /user_command/ ws)*
     from_command          = from spaces (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
+    user_command          = user spaces (user_name / user_id) ws
+    comment               = comment_start sentence* ws
     
     from                  = spaces* "FROM"
     platform              = "--platform=" word_symbols spaces
@@ -20,14 +23,19 @@ grammar = Grammar(
     hash                  = ~"[a-z0-9]{32,}"
     local_name            = spaces "AS" spaces word_symbols
     
-    comment               = comment_start sentence* ws
+    user                  = spaces* "USER"
+    user_name             = unix_user (":" unix_user)?
+    unix_user             = ~"[a-z_][a-z0-9_-]*[$]?"
+    user_id               = unix_uid (":" unix_uid)?
+    unix_uid              = ~"[0-9]{1,5}"
+    
     sentence              = spaces* word_symbols (spaces word_symbols)*
     comment_start         = spaces* hashtag spaces*
     hashtag               = "#"
     spaces                = space+
     space                 = " "
     word_symbols          = ~"[\S]+"
-    ws                    = ~"\s+"
+    ws                    = ~"\s*"
     """
 )
 
@@ -37,7 +45,8 @@ class IniVisitor(NodeVisitor):
         """ Returns the overall output. """
         result = {'comments': [],
                   'commands': {
-                      'from_commands': []
+                      'from_commands': [],
+                      'user_commands': []
                     }
                   }
         for line in visited_children:
@@ -48,14 +57,47 @@ class IniVisitor(NodeVisitor):
             if line[0]['type'] == "command":
                 if line[0]['command_type'] == "from":
                     result['commands']['from_commands'].append(line[0]['content'])
+                elif line[0]['command_type'] == "user":
+                    result['commands']['user_commands'].append(line[0]['content'])
         return result
 
-    def visit_comment(self, node, visited_children):
-        _, comment, _ = visited_children
-        comment_sentence = ""
-        for item in comment:
-            comment_sentence += f"{item}"
-        return {"type": "comment", "content": comment_sentence}
+    # Functions for USER
+
+    def visit_user_command(self, node, visited_children):
+        _, _, user, _ = visited_children
+        result = {'type': 'command',
+                  'command_type': 'user',
+                  'content': user[0]}
+        return result
+
+    def visit_user(self, node, visited_children):
+        return "USER"
+
+    def visit_user_name(self, node, visited_children):
+        user, group = visited_children
+        try:
+            unix_group = group[0][1]
+            return {'user': user, 'group': unix_group}
+        except:
+            return {'user': user, 'group': None}
+
+    def visit_user_id(self, node, visited_children):
+        user, group = visited_children
+        try:
+            unix_group = group[0][1]
+            return {'user': user, 'group': unix_group}
+        except:
+            return {'user': user, 'group': None}
+
+    def visit_unix_user(self, node, visited_children):
+        return node.text
+
+    def visit_unix_uid(self, node, visited_children):
+        return node.text
+
+    # END of functions for USER
+
+    # Functions for FROM
 
     def visit_from_command(self, node, visited_children):
         _, _, platform, registry, image_name, tag_or_digest, local_name, _ = visited_children
@@ -129,6 +171,16 @@ class IniVisitor(NodeVisitor):
         _, _, _, name = visited_children
         return name.text
 
+    # END of Functions for FROM
+
+    # Functions for COMMENT
+    def visit_comment(self, node, visited_children):
+        _, comment, _ = visited_children
+        comment_sentence = ""
+        for item in comment:
+            comment_sentence += f"{item}"
+        return {"type": "comment", "content": comment_sentence}
+
     def visit_sentence(self, node, visited_children):
         _, word, words = visited_children
         sentence = ""
@@ -142,25 +194,7 @@ class IniVisitor(NodeVisitor):
         _, hashtag, _ = visited_children
         return hashtag.text
 
-    def visit_parameters(self, node, visited_children):
-        """ Makes a dict of the section (as key) and the key/value pairs. """
-        params = []
-        for item in visited_children:
-            try:
-                # First parameter
-                params.append(item.text)
-            except:
-                # Rest of parameters are lists of 2 items, ws and word_symbol
-                for subitem in item:
-                    params.append(subitem[1].text)
-        return params
-
-    def visit_command(self, node, visited_children):
-        _, command = visited_children
-        return command
-
-    def visit_capital_word(self, node, visited_children):
-        return node.text
+    # END of functions for COMMENT
 
     def visit_ws(self, node, visited_children):
         return node.text
@@ -176,6 +210,7 @@ with open('Dockerfile') as f:
     tree = grammar.parse(data)
     #print(tree)
     iv = IniVisitor()
-    print(iv.visit(tree))
+    output = iv.visit(tree)
+    print(json.dumps(output, indent=2))
 
 
