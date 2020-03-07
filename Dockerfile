@@ -11,10 +11,10 @@ FROM debian:buster-slim AS build
 #
  RUN set -x \
      && addgroup --system --gid 101 nginx \  
-     && adduser --system --disabled-login --ingroup nginx --no-create-home --home /nonexistent\  
---gecos "nginx user" --shell /bin/false --uid 101 nginx   \    
+     && adduser --system --disabled-login --ingroup nginx --no-create-home --home /nonexistent \
+    --gecos "nginx user" --shell /bin/false --uid 101 nginx
+RUN ["id", "test","test2" , "test4"]
 
-id
 FROM http://test-123.com:4682/image AS test
 
 USER daniele:daniele

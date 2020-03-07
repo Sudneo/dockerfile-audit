@@ -1,13 +1,15 @@
 import json
+import re
 from parsimonious.grammar import Grammar
 from parsimonious.nodes import NodeVisitor
 
 
 grammar = Grammar(
     """
-    dockerfile            = (comment / from_command /user_command/ ws)*
+    dockerfile            = (comment / from_command / user_command / run_command / ws)*
     from_command          = from spaces (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
     user_command          = user spaces (user_name / user_id) ws
+    run_command           = run (run_exec_format / run_shell_format) ws
     comment               = comment_start sentence* ws
     
     from                  = spaces* "FROM"
@@ -29,12 +31,19 @@ grammar = Grammar(
     user_id               = unix_uid (":" unix_uid)?
     unix_uid              = ~"[0-9]{1,5}"
     
-    multiline_expression  = ~"[^\n\\]+(\n|\\[\s]+([^\n\\]+\\[\s]+)*([^\n\\]+\n))"
+    run                   = spaces* "RUN"
+    run_shell_format      = multiline_expression
+    run_exec_format       = spaces* lpar quoted_word (spaces? "," spaces? quoted_word)* rpar
+    
+    multiline_expression  = ~r"[^\\\\\\n]+(\\n|\\\\[\s]+([^\\n\\\\]+\\\\[\s]+)*[^\\n\\\\]+\\n)"
     sentence              = spaces* word_symbols (spaces word_symbols)*
+    quoted_word           = ~r'"[^\\\"]+"'
     comment_start         = spaces* hashtag spaces*
     hashtag               = "#"
     spaces                = space+
     space                 = " "
+    lpar                  = "["
+    rpar                  = "]"
     word_symbols          = ~"[\S]+"
     ws                    = ~"\s*"
     """
@@ -47,7 +56,8 @@ class IniVisitor(NodeVisitor):
         result = {'comments': [],
                   'commands': {
                       'from_commands': [],
-                      'user_commands': []
+                      'user_commands': [],
+                      'run_commands': []
                     }
                   }
         for line in visited_children:
@@ -60,7 +70,38 @@ class IniVisitor(NodeVisitor):
                     result['commands']['from_commands'].append(line[0]['content'])
                 elif line[0]['command_type'] == "user":
                     result['commands']['user_commands'].append(line[0]['content'])
+                elif line[0]['command_type'] == 'run':
+                    result['commands']['run_commands'].append(line[0]['content'])
         return result
+
+    # Functions for RUN
+
+    def visit_run_command(self, node, visited_children):
+        _, command, _ = visited_children
+        try:
+            sanitized_command = command[0].text.replace('\n', '').replace('\\', ' ').lstrip(' ')
+        except:
+            sanitized_command = command[0]
+        spaces = re.compile('[ ]{2,}')
+        normalized_command = spaces.sub(' ', sanitized_command)
+        result = {'type': 'command',
+                  'command_type': "run",
+                  'content': normalized_command}
+        return result
+
+    def visit_run(self, node, visited_children):
+        return "RUN"
+
+    def visit_run_shell_format(self, node, visited_children):
+        return node.text
+
+    def visit_run_exec_format(self, node, visited_children):
+        _, _, cmd, cmds, _ = visited_children
+        commands = [cmd.text.replace("\"", "")]
+        for item in cmds:
+            cmd_part = item[3]
+            commands.append(cmd_part.text.replace("\"", ""))
+        return ' '.join(commands)
 
     # Functions for USER
 
