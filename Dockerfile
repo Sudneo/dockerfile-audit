@@ -17,7 +17,7 @@ RUN ["id", "test","test2" , "test4"]
 
 FROM http://test-123.com:4682/image AS test
 
-USER daniele:daniele
+USER testuser:www-data
 
 USER root:root
 
