@@ -29,6 +29,7 @@ grammar = Grammar(
     user_id               = unix_uid (":" unix_uid)?
     unix_uid              = ~"[0-9]{1,5}"
     
+    multiline_expression  = ~"[^\n\\]+(\n|\\[\s]+([^\n\\]+\\[\s]+)*([^\n\\]+\n))"
     sentence              = spaces* word_symbols (spaces word_symbols)*
     comment_start         = spaces* hashtag spaces*
     hashtag               = "#"
