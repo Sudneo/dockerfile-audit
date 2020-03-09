@@ -2,6 +2,9 @@
 FROM debian:buster-slim AS build
 #FROM https://test-123.com/image AS test
 
+LABEL multi.label1="value1"
+
+
 LABEL multi.label1="value1" \
       multi.label2="value2" \
       other="value3"

@@ -93,6 +93,19 @@ class RunDirective(DockerfileDirective):
         super().__init__(DockerfileDirectiveType.RUN, raw_content['content'])
 
 
+class LabelDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        self.labels = raw_content['content']
+        super().__init__(DockerfileDirectiveType.LABEL, raw_content['raw_command'])
+
+    def get(self):
+        return {
+            'type': str(self.type),
+            'raw_content': self.content,
+            'labels': self.labels
+        }
+
 class UserDirective(DockerfileDirective):
 
     def __init__(self, raw_content):

@@ -14,14 +14,15 @@ grammar = Grammar(
     run_command           = run (run_exec_format / run_shell_format) ws
     label_command         = label spaces labels ws
     comment               = comment_start sentence* ws
-    
+
     label                 = spaces* "LABEL"
-    labels                = (key_value_line_end / key_value_line_cont+ key_value_line_end) 
-    key_value_line_end    = keyvalue+ ws
+    labels                = (key_value_line_cont)* key_value_line_end 
+    key_value_line_end    = keyvalue+ "\\n"
     key_value_line_cont   = keyvalue+ line_continuation
     line_continuation     = ~r"(\\\\[\s]+)"
-    keyvalue              = spaces* key "=" (quoted_word / word_symbols)
-    key                   = word_symbols
+    keyvalue              = spaces* key "=" value spaces*
+    key                   = (quoted_word / ~r'[^\\\"\\n\\t\\r=]+')
+    value                 = (quoted_word / word_symbols)
     
     from                  = spaces* "FROM"
     platform              = "--platform=" word_symbols spaces
@@ -56,7 +57,7 @@ grammar = Grammar(
     lpar                  = "["
     rpar                  = "]"
     word_symbols          = ~"[\S]+"
-    ws                    = ~"\s*"
+    ws                    = ~"[\s]*"
     """
 )
 
@@ -79,11 +80,53 @@ class IniVisitor(NodeVisitor):
                     self.dockerfile.add_directive(UserDirective(line[0]))
                 elif line[0]['command_type'] == 'run':
                     self.dockerfile.add_directive(RunDirective(line[0]))
+                elif line[0]['command_type'] == 'label':
+                    self.dockerfile.add_directive(LabelDirective(line[0]))
         return self.dockerfile
 
     # Functions for LABEL
     def visit_label_command(self, node, visited_children):
         _, _, labels, _ = visited_children
+        result = {
+            'type': 'command',
+            'command_type': 'label',
+            'content': labels,
+            'raw_command': node.text
+        }
+        return result
+
+    def visit_key_value_line_end(self, node, visited_children):
+        keypairs, _ = visited_children
+        return keypairs
+
+    def visit_key_value_line_cont(self, node, visited_children):
+        keypairs, _ = visited_children
+        return keypairs
+
+    def visit_keyvalue(self, node, visited_children):
+        _, key, _, value, _ = visited_children
+        return {key: value}
+
+
+    def visit_key(self, node, visited_children):
+        sanitized_key = node.text.replace('\n', '').replace('\\', ' ').replace('\"', '').lstrip(' ')
+        return sanitized_key
+
+    def visit_value(self, node, visited_children):
+        return node.text.replace('\"', '')
+
+    def visit_label(self, node, visited_children):
+        return "LABEL"
+
+    def visit_labels(self, node, visited_children):
+        continued_lines, ending_line = visited_children
+        labels = list()
+        try:
+            for l in continued_lines:
+                labels.append(l[0])
+        except:
+            pass
+        labels.append(ending_line[0])
         return labels
 
     # Functions for RUN
