@@ -2,15 +2,26 @@ import json
 import re
 from parsimonious.grammar import Grammar
 from parsimonious.nodes import NodeVisitor
+from dockerfile.Dockerfile import Dockerfile
+from dockerfile.Directives import *
 
 
 grammar = Grammar(
     """
-    dockerfile            = (comment / from_command / user_command / run_command / ws)*
+    dockerfile            = (comment / from_command / user_command / run_command / label_command / ws)*
     from_command          = from spaces (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
     user_command          = user spaces (user_name / user_id) ws
     run_command           = run (run_exec_format / run_shell_format) ws
+    label_command         = label spaces labels ws
     comment               = comment_start sentence* ws
+    
+    label                 = spaces* "LABEL"
+    labels                = (key_value_line_end / key_value_line_cont+ key_value_line_end) 
+    key_value_line_end    = keyvalue+ ws
+    key_value_line_cont   = keyvalue+ line_continuation
+    line_continuation     = ~r"(\\\\[\s]+)"
+    keyvalue              = spaces* key "=" (quoted_word / word_symbols)
+    key                   = word_symbols
     
     from                  = spaces* "FROM"
     platform              = "--platform=" word_symbols spaces
@@ -51,28 +62,29 @@ grammar = Grammar(
 
 
 class IniVisitor(NodeVisitor):
+
+    dockerfile = Dockerfile()
+
     def visit_dockerfile(self, node, visited_children):
         """ Returns the overall output. """
-        result = {'comments': [],
-                  'commands': {
-                      'from_commands': [],
-                      'user_commands': [],
-                      'run_commands': []
-                    }
-                  }
         for line in visited_children:
             if line[0]['type'] == "comment":
                 content = line[0]['content']
                 if content is not None and content != "":
-                    result['comments'].append(content)
+                    self.dockerfile.add_directive(Comment(line[0]['content']))
             if line[0]['type'] == "command":
                 if line[0]['command_type'] == "from":
-                    result['commands']['from_commands'].append(line[0]['content'])
+                    self.dockerfile.add_directive(FromDirective(line[0]))
                 elif line[0]['command_type'] == "user":
-                    result['commands']['user_commands'].append(line[0]['content'])
+                    self.dockerfile.add_directive(UserDirective(line[0]))
                 elif line[0]['command_type'] == 'run':
-                    result['commands']['run_commands'].append(line[0]['content'])
-        return result
+                    self.dockerfile.add_directive(RunDirective(line[0]))
+        return self.dockerfile
+
+    # Functions for LABEL
+    def visit_label_command(self, node, visited_children):
+        _, _, labels, _ = visited_children
+        return labels
 
     # Functions for RUN
 
@@ -86,7 +98,8 @@ class IniVisitor(NodeVisitor):
         normalized_command = spaces.sub(' ', sanitized_command)
         result = {'type': 'command',
                   'command_type': "run",
-                  'content': normalized_command}
+                  'content': normalized_command,
+                  'raw_command': node.text.rstrip('\n')}
         return result
 
     def visit_run(self, node, visited_children):
@@ -109,7 +122,9 @@ class IniVisitor(NodeVisitor):
         _, _, user, _ = visited_children
         result = {'type': 'command',
                   'command_type': 'user',
-                  'content': user[0]}
+                  'content': user[0],
+                  'raw_command': node.text.rstrip('\n')
+                  }
         return result
 
     def visit_user(self, node, visited_children):
@@ -137,8 +152,6 @@ class IniVisitor(NodeVisitor):
     def visit_unix_uid(self, node, visited_children):
         return node.text
 
-    # END of functions for USER
-
     # Functions for FROM
 
     def visit_from_command(self, node, visited_children):
@@ -164,7 +177,7 @@ class IniVisitor(NodeVisitor):
                        "tag": tag,
                        "local_name": local_build_name,
                        },
-                  "raw": node.text
+                  "raw_command": node.text.rstrip('\n')
                   }
         return result
 
@@ -213,8 +226,6 @@ class IniVisitor(NodeVisitor):
         _, _, _, name = visited_children
         return name.text
 
-    # END of Functions for FROM
-
     # Functions for COMMENT
     def visit_comment(self, node, visited_children):
         _, comment, _ = visited_children
@@ -248,11 +259,9 @@ class IniVisitor(NodeVisitor):
 
 with open('Dockerfile') as f:
     data = f.read()
-    #print(data)
     tree = grammar.parse(data)
-    #print(tree)
     iv = IniVisitor()
     output = iv.visit(tree)
-    print(json.dumps(output, indent=2))
+    print(json.dumps(output.get_directives(), indent=2))
 
 

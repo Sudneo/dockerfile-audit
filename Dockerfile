@@ -2,6 +2,17 @@
 FROM debian:buster-slim AS build
 #FROM https://test-123.com/image AS test
 
+LABEL multi.label1="value1" \
+      multi.label2="value2" \
+      other="value3"
+
+LABEL "com.example.vendor"="ACME Incorporated"
+LABEL com.example.label-with-value="foo"
+LABEL version="1.0"
+LABEL description="This text illustrates \
+that label-values can span multiple lines."
+
+
 #
 # LABEL maintainer="NGINX Docker Maintainers <docker-maint@nginx.com>"
 #
