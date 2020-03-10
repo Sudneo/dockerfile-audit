@@ -9,17 +9,26 @@ from dockerfile.Directives import *
 grammar = Grammar(
     """
     dockerfile            = (comment / from_command / user_command / run_command / label_command / expose_command /
-                             maintainer_command / add_command / ws)*
+                             maintainer_command / add_command / copy_command / env_command / ws)*
     from_command          = from spaces (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
     user_command          = user spaces (user_name / user_id) ws
     run_command           = run (run_exec_format / run_shell_format) ws
     label_command         = label spaces labels ws
     expose_command        = expose spaces ports ws
     maintainer_command    = maintainer maintainer_name (spaces* "," spaces* maintainer_name)* ws
-    add_command           = add spaces (chown spaces)? ( linear_add / quoted_list_min_l ) ws
+    add_command           = add spaces (chown spaces)? ( quoted_list_min_l / linear_add ) ws
+    copy_command          = copy spaces (chown spaces)? ( quoted_list_min_l / linear_add ) ws
+    env_command           = env spaces ( labels / spaced_key_value ) ws
     comment               = comment_start sentence* ws
 
+    env                   = spaces* "ENV"
+    spaced_key_value      = key spaces env_value
+    env_value             = ~r"[\S ]+"
+    
+    copy                  = spaces* "COPY"
+
     add                   = spaces* "ADD"
+    
     chown                 = "--chown=" unix_user_group
     linear_add            = word_symbols spaces word_symbols ( spaces word_symbols)*
     
@@ -37,7 +46,7 @@ grammar = Grammar(
     labels                = (key_value_line_cont)* key_value_line_end 
     key_value_line_end    = keyvalue+ "\\n"
     key_value_line_cont   = keyvalue+ line_continuation
-    line_continuation     = ~r"(\\\\[\s]+)"
+    line_continuation     = ~r"(\\\\[\\n]+)"
     keyvalue              = spaces* key "=" value spaces*
     key                   = (quoted_word / ~r'[^\\\"\\n\\t\\r=]+')
     value                 = (quoted_word / word_symbols)
@@ -108,16 +117,72 @@ class IniVisitor(NodeVisitor):
                     self.dockerfile.add_directive(ExposeDirective(line[0]))
                 elif command_type == 'maintainer':
                     self.dockerfile.add_directive(MaintainerDirective(line[0]))
+                elif command_type == 'add':
+                    self.dockerfile.add_directive(AddDirective(line[0]))
+                elif command_type == 'copy':
+                    self.dockerfile.add_directive(CopyDirective(line[0]))
         return self.dockerfile
+
+    # Functions for ENV
+
+    def visit_env_command(self, node, visited_children):
+        _, _, labels, _ = visited_children
+        result = {
+            'type': 'command',
+            'command_type': 'label',
+            'content': labels,
+            'raw_command': node.text
+        }
+        return result
+
+    # Function for COPY
+
+    def visit_copy_command(self, node, visited_children):
+        _, _, chown, files, _ = visited_children
+        try:
+            chown_structure = chown[0][0]
+        except:
+            chown_structure = None
+        result = {
+            'type': 'command',
+            'command_type': 'copy',
+            'content': {'chown': chown_structure,
+                        'source': files[0]['sources'],
+                        'destination': files[0]['destination']
+                        },
+            'raw_command': node.text.replace('\n', '').lstrip(' ')
+        }
+        return result
+
+    def visit_copy(self, node, visited_children):
+        return "COPY"
 
     # Function for ADD
 
     def visit_add_command(self, node, visited_children):
-        pass
+        _, _, chown, files, _ = visited_children
+        try:
+            chown_structure = chown[0][0]
+        except:
+            chown_structure = None
+        result = {
+            'type': 'command',
+            'command_type': 'add',
+            'content': {'chown': chown_structure,
+                        'source': files[0]['sources'],
+                        'destination': files[0]['destination']
+                        },
+            'raw_command': node.text.replace('\n', '').lstrip(' ')
+        }
+        return result
 
     def visit_chown(self, node, visited_children):
         _, user_group = visited_children
-        return user_group
+        try:
+            group = user_group[1][0][1][0]
+        except:
+            group = None
+        return {'user': user_group[0][0], 'group': group}
 
     def visit_linear_add(self, node, visited_children):
         first_path, _, second_path, additional_paths = visited_children
@@ -139,7 +204,9 @@ class IniVisitor(NodeVisitor):
         for i in items:
             item_part = i[3]
             arguments.append(item_part.text.replace("\"", ""))
-        return ' '.join(arguments)
+        sources = arguments[:-1]
+        destination = arguments[-1]
+        return {'sources': sources, 'destination': destination}
 
     # Functions for MAINTAINER
 

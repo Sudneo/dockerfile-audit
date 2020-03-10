@@ -8,9 +8,9 @@ Implementation Roadmap
 - [X] LABEL
 - [X] MAINTAINER
 - [X] EXPOSE
-- [ ] ENV
+- [ ] ENV - In progress
 - [X] ADD
-- [ ] COPY
+- [X] COPY
 - [ ] ENTRYPOINT
 - [ ] VOLUME
 - [X] USER

@@ -159,6 +159,41 @@ class MaintainerDirective(DockerfileDirective):
         }
 
 
+class AddDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        self.chown = raw_content['content']['chown']
+        self.source = raw_content['content']['source']
+        self.destination = raw_content['content']['destination']
+        super().__init__(DockerfileDirectiveType.ADD, raw_content['raw_command'])
+
+    def get(self):
+        return {
+            'type': str(self.type),
+            'raw_content': self.content,
+            'chown': self.chown,
+            'source': self.source,
+            'destination': self.destination
+        }
+
+class CopyDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        self.chown = raw_content['content']['chown']
+        self.source = raw_content['content']['source']
+        self.destination = raw_content['content']['destination']
+        super().__init__(DockerfileDirectiveType.COPY, raw_content['raw_command'])
+
+    def get(self):
+        return {
+            'type': str(self.type),
+            'raw_content': self.content,
+            'chown': self.chown,
+            'source': self.source,
+            'destination': self.destination
+        }
+
+
 class Comment(DockerfileDirective):
 
     def __init__(self, raw_content):

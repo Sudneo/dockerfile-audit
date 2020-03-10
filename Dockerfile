@@ -56,3 +56,16 @@ ADD test relativeDir/
 ADD test /absoluteDir/
 
 ADD ["/test2/", "test4", "dest"]
+
+COPY hom* /mydir/
+
+COPY hom?.txt /mydir/
+
+COPY arr[[]0].txt /mydir/
+
+ENV myName="John Doe" myDog=Rex\ The\ Dog \
+    myCat=fluffy
+
+ENV myName John Doe
+ENV myDog Rex The Dog
+ENV myCat fluffy
