@@ -6,10 +6,10 @@ Implementation Roadmap
 - [X] RUN
 - [ ] CMD
 - [X] LABEL
-- [ ] MAINTAINER
-- [ ] EXPOSE
+- [X] MAINTAINER
+- [X] EXPOSE
 - [ ] ENV
-- [ ] ADD
+- [X] ADD
 - [ ] COPY
 - [ ] ENTRYPOINT
 - [ ] VOLUME

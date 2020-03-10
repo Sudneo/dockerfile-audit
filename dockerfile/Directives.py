@@ -106,6 +106,7 @@ class LabelDirective(DockerfileDirective):
             'labels': self.labels
         }
 
+
 class UserDirective(DockerfileDirective):
 
     def __init__(self, raw_content):
@@ -128,6 +129,34 @@ class UserDirective(DockerfileDirective):
             'group': self.group,
             'raw_content': self.content
                 }
+
+
+class ExposeDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        self.ports = raw_content['content']
+        super().__init__(DockerfileDirectiveType.EXPOSE, raw_content['raw_command'])
+
+    def get(self):
+        return {
+            'type': str(self.type),
+            'raw_content': self.content,
+            'ports': self.ports
+        }
+
+
+class MaintainerDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        self.maintainers = raw_content['content']
+        super().__init__(DockerfileDirectiveType.MAINTAINER, raw_content['raw_command'])
+
+    def get(self):
+        return {
+            'type': str(self.type),
+            'raw_content': self.content,
+            'maintainers': self.maintainers
+        }
 
 
 class Comment(DockerfileDirective):

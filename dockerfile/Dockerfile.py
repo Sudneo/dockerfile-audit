@@ -15,6 +15,9 @@ class Dockerfile:
             'user': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.USER)],
             'run': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.RUN)],
             'comments': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.COMMENT)],
+            'labels': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.LABEL)],
+            'expose': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.EXPOSE)],
+            'maintainers': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.MAINTAINER)],
             'raw': [d.get() for d in self.directives]
         }
         return result

@@ -2,6 +2,8 @@
 FROM debian:buster-slim AS build
 #FROM https://test-123.com/image AS test
 
+MAINTAINER d <d@example.com>, test <test@test.com>
+
 LABEL multi.label1="value1"
 
 
@@ -14,6 +16,12 @@ LABEL com.example.label-with-value="foo"
 LABEL version="1.0"
 LABEL description="This text illustrates \
 that label-values can span multiple lines."
+
+EXPOSE 80
+
+EXPOSE 144/tcp
+
+EXPOSE 8080/udp 8999/tcp
 
 
 #
@@ -40,3 +48,11 @@ USER 0:0
 USER root
 
 USER 1000
+
+ADD --chown=daniele:1 hom* test2 /mydir/
+
+ADD test relativeDir/
+
+ADD test /absoluteDir/
+
+ADD ["/test2/", "test4", "dest"]

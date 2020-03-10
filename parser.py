@@ -8,12 +8,30 @@ from dockerfile.Directives import *
 
 grammar = Grammar(
     """
-    dockerfile            = (comment / from_command / user_command / run_command / label_command / ws)*
+    dockerfile            = (comment / from_command / user_command / run_command / label_command / expose_command /
+                             maintainer_command / add_command / ws)*
     from_command          = from spaces (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
     user_command          = user spaces (user_name / user_id) ws
     run_command           = run (run_exec_format / run_shell_format) ws
     label_command         = label spaces labels ws
+    expose_command        = expose spaces ports ws
+    maintainer_command    = maintainer maintainer_name (spaces* "," spaces* maintainer_name)* ws
+    add_command           = add spaces (chown spaces)? ( linear_add / quoted_list_min_l ) ws
     comment               = comment_start sentence* ws
+
+    add                   = spaces* "ADD"
+    chown                 = "--chown=" unix_user_group
+    linear_add            = word_symbols spaces word_symbols ( spaces word_symbols)*
+    
+    maintainer            = spaces* "MAINTAINER"
+    maintainer_name       = ~r'[^\\\"\\n\\t\\r=,]+'
+    
+    expose                = spaces* "EXPOSE"
+    ports                 = expose_port ( spaces expose_port )*
+    expose_port           = port ( "/" port_protocol )?
+    port_protocol         = ( tcp / udp )
+    tcp                   = ( "TCP" / "tcp" )
+    udp                   = ( "UDP" / "udp" )
 
     label                 = spaces* "LABEL"
     labels                = (key_value_line_cont)* key_value_line_end 
@@ -38,6 +56,7 @@ grammar = Grammar(
     local_name            = spaces "AS" spaces word_symbols
     
     user                  = spaces* "USER"
+    unix_user_group       = (unix_user / unix_uid) (":" (unix_user / unix_uid) )?
     user_name             = unix_user (":" unix_user)?
     unix_user             = ~"[a-z_][a-z0-9_-]*[$]?"
     user_id               = unix_uid (":" unix_uid)?
@@ -47,6 +66,7 @@ grammar = Grammar(
     run_shell_format      = multiline_expression
     run_exec_format       = spaces* lpar quoted_word (spaces? "," spaces? quoted_word)* rpar
     
+    quoted_list_min_l     = spaces* lpar quoted_word (spaces? "," spaces? quoted_word)+ rpar
     multiline_expression  = ~r"[^\\\\\\n]+(\\n|\\\\[\s]+([^\\n\\\\]+\\\\[\s]+)*[^\\n\\\\]+\\n)"
     sentence              = spaces* word_symbols (spaces word_symbols)*
     quoted_word           = ~r'"[^\\\"]+"'
@@ -69,20 +89,128 @@ class IniVisitor(NodeVisitor):
     def visit_dockerfile(self, node, visited_children):
         """ Returns the overall output. """
         for line in visited_children:
-            if line[0]['type'] == "comment":
+            type = line[0]['type']
+            if type == 'comment':
                 content = line[0]['content']
                 if content is not None and content != "":
                     self.dockerfile.add_directive(Comment(line[0]['content']))
-            if line[0]['type'] == "command":
-                if line[0]['command_type'] == "from":
+            if type == 'command':
+                command_type = line[0]['command_type']
+                if command_type == 'from':
                     self.dockerfile.add_directive(FromDirective(line[0]))
-                elif line[0]['command_type'] == "user":
+                elif command_type == 'user':
                     self.dockerfile.add_directive(UserDirective(line[0]))
-                elif line[0]['command_type'] == 'run':
+                elif command_type == 'run':
                     self.dockerfile.add_directive(RunDirective(line[0]))
-                elif line[0]['command_type'] == 'label':
+                elif command_type == 'label':
                     self.dockerfile.add_directive(LabelDirective(line[0]))
+                elif command_type == 'expose':
+                    self.dockerfile.add_directive(ExposeDirective(line[0]))
+                elif command_type == 'maintainer':
+                    self.dockerfile.add_directive(MaintainerDirective(line[0]))
         return self.dockerfile
+
+    # Function for ADD
+
+    def visit_add_command(self, node, visited_children):
+        pass
+
+    def visit_chown(self, node, visited_children):
+        _, user_group = visited_children
+        return user_group
+
+    def visit_linear_add(self, node, visited_children):
+        first_path, _, second_path, additional_paths = visited_children
+        sources = list()
+        try:
+            destination = additional_paths[-1][1].text
+            for path in additional_paths[:-1]:
+                sources.append(path[1].text)
+            sources.append(second_path.text)
+        except:
+            destination = second_path.text
+        finally:
+            sources.append(first_path.text)
+        return {'sources': sources, 'destination': destination}
+
+    def visit_quoted_list_min_l(self, node, visited_children):
+        _, _, item, items, _ = visited_children
+        arguments = [item.text.replace("\"", "")]
+        for i in items:
+            item_part = i[3]
+            arguments.append(item_part.text.replace("\"", ""))
+        return ' '.join(arguments)
+
+    # Functions for MAINTAINER
+
+    def visit_maintainer_command(self, node, visited_children):
+        _, first_maintainer, additional_maintainers, _ = visited_children
+        maintainers = list()
+        try:
+            for maintainer in additional_maintainers:
+                maintainers.append(maintainer[3])
+        except:
+            pass
+        finally:
+            maintainers.append(first_maintainer)
+        result = {
+            'type': 'command',
+            'command_type': 'maintainer',
+            'content': maintainers,
+            'raw_command': node.text.replace('\n', '').lstrip(' ')
+        }
+        return result
+
+    def visit_maintainer(self, node, visited_children):
+        return "MAINTAINER"
+
+    def visit_maintainer_name(self, node, visited_children):
+        return node.text.lstrip(' ')
+
+    # Fucntions for EXPOSE
+
+    def visit_expose_command(self, node, visited_children):
+        _, _, ports, _ = visited_children
+        result = {
+            'type': 'command',
+            'command_type': 'expose',
+            'content': ports,
+            'raw_command': node.text.replace('\n', '').lstrip(' ')
+        }
+        return result
+
+    def visit_expose(self, node, visited_children):
+        return "EXPOSE"
+
+    def visit_ports(self, node, visited_children):
+        first_port, additional_ports = visited_children
+        ports = list()
+        try:
+            for port in additional_ports:
+                ports.append(port[1])
+        except:
+            pass
+        finally:
+            ports.append(first_port)
+        return ports
+
+    def visit_expose_port(self, node, visited_children):
+        port, protocol = visited_children
+        try:
+            protocol_name = protocol[0][1]
+        except:
+            protocol_name = "tcp"
+        return {'port': port, 'protocol': protocol_name}
+
+    def visit_port_protocol(self, node, visited_children):
+        protocol = visited_children
+        return protocol[0]
+
+    def visit_tcp(self, node, visited_children):
+        return "tcp"
+
+    def visit_udp(self, node, visited_children):
+        return "udp"
 
     # Functions for LABEL
     def visit_label_command(self, node, visited_children):
@@ -106,7 +234,6 @@ class IniVisitor(NodeVisitor):
     def visit_keyvalue(self, node, visited_children):
         _, key, _, value, _ = visited_children
         return {key: value}
-
 
     def visit_key(self, node, visited_children):
         sanitized_key = node.text.replace('\n', '').replace('\\', ' ').replace('\"', '').lstrip(' ')
@@ -306,5 +433,6 @@ with open('Dockerfile') as f:
     iv = IniVisitor()
     output = iv.visit(tree)
     print(json.dumps(output.get_directives(), indent=2))
+    json.dump(output.get_directives(), indent=4, sort_keys=True, fp=open('result.json', 'w'))
 
 
