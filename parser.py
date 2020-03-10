@@ -9,7 +9,8 @@ from dockerfile.Directives import *
 grammar = Grammar(
     """
     dockerfile            = (comment / from_command / user_command / run_command / label_command / expose_command /
-                             maintainer_command / add_command / copy_command / env_command / ws)*
+                             maintainer_command / add_command / copy_command / env_command / cmd_command / 
+                             entrypoint_command / ws)*
     from_command          = from spaces (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
     user_command          = user spaces (user_name / user_id) ws
     run_command           = run (run_exec_format / run_shell_format) ws
@@ -18,13 +19,27 @@ grammar = Grammar(
     maintainer_command    = maintainer maintainer_name (spaces* "," spaces* maintainer_name)* ws
     add_command           = add spaces (chown spaces)? ( quoted_list_min_l / linear_add ) ws
     copy_command          = copy spaces (chown spaces)? ( quoted_list_min_l / linear_add ) ws
-    env_command           = env spaces ( labels / spaced_key_value ) ws
+    env_command           = env spaces ( spaced_key_value / env_key_value ) ws
+    cmd_command           = cmd spaces ( run_exec_format / cmd_line ) ws
+    entrypoint_command    = entrypoint spaces ( run_exec_format / cmd_line ) ws
+    workdir_command       = workdir spaces (word_symbols / spaced_env_value ) ws
     comment               = comment_start sentence* ws
-
-    env                   = spaces* "ENV"
-    spaced_key_value      = key spaces env_value
-    env_value             = ~r"[\S ]+"
     
+    workdir               = space* "WORKDIR"
+
+    entrypoint            = space* "ENTRYPOINT"
+
+    cmd                   = space* "CMD"
+    cmd_line              = ~"[^\\n]+"
+    
+    env                   = spaces* "ENV"
+    spaced_key_value      = key spaces unescaped_env_value
+    env_key_value         = env_assignment+ ( line_continuation env_assignment+)*
+    env_assignment        = space* key "=" env_value space*
+    env_value             = ( spaced_env_value / quoted_word / word_symbols )
+    unescaped_env_value   = ~r"[\S ]+"
+    spaced_env_value      = ~r"[\S]+((\\\\ [\S]+)*\\\\ )[\S]*"
+        
     copy                  = spaces* "COPY"
 
     add                   = spaces* "ADD"
@@ -48,7 +63,7 @@ grammar = Grammar(
     key_value_line_cont   = keyvalue+ line_continuation
     line_continuation     = ~r"(\\\\[\\n]+)"
     keyvalue              = spaces* key "=" value spaces*
-    key                   = (quoted_word / ~r'[^\\\"\\n\\t\\r=]+')
+    key                   = (quoted_word / ~r'[^\\\"\\n\\t\\r= ]+')
     value                 = (quoted_word / word_symbols)
     
     from                  = spaces* "FROM"
@@ -121,19 +136,102 @@ class IniVisitor(NodeVisitor):
                     self.dockerfile.add_directive(AddDirective(line[0]))
                 elif command_type == 'copy':
                     self.dockerfile.add_directive(CopyDirective(line[0]))
+                elif command_type == 'env':
+                    self.dockerfile.add_directive(EnvDirective(line[0]))
+                elif command_type == 'cmd':
+                    self.dockerfile.add_directive(CmdDirective(line[0]))
+                elif command_type == 'entrypoint':
+                    self.dockerfile.add_directive(EntrypointDirective(line[0]))
         return self.dockerfile
+
+    # Functions for WORKDIR
+
+    def visit_workdir_command(self, node, visited_children):
+        _, _, path = visited_children
+        return path
+
+    # Functions for ENTRYPOINT
+
+    def visit_entrypoint_command(self, node, visited_children):
+        _, _, command, _ = visited_children
+        try:
+            sanitized_command = command[0].text.replace('\n', '').replace('\\', ' ').lstrip(' ')
+        except:
+            sanitized_command = command[0]
+        spaces = re.compile('[ ]{2,}')
+        normalized_command = spaces.sub(' ', sanitized_command)
+        result = {'type': 'command',
+                  'command_type': "entrypoint",
+                  'content': normalized_command,
+                  'raw_command': node.text}
+        return result
+
+    # Functions for CMD
+
+    def visit_cmd_command(self, node, visited_children):
+        _, _, command, _ = visited_children
+        try:
+            sanitized_command = command[0].text.replace('\n', '').replace('\\', ' ').lstrip(' ')
+        except:
+            sanitized_command = command[0]
+        spaces = re.compile('[ ]{2,}')
+        normalized_command = spaces.sub(' ', sanitized_command)
+        result = {'type': 'command',
+                  'command_type': "cmd",
+                  'content': normalized_command,
+                  'raw_command': node.text}
+        return result
+
+    def visit_cmd_line(self, node, visited_children):
+        return node.text
 
     # Functions for ENV
 
     def visit_env_command(self, node, visited_children):
-        _, _, labels, _ = visited_children
+        _, _, variables, _ = visited_children
         result = {
             'type': 'command',
-            'command_type': 'label',
-            'content': labels,
-            'raw_command': node.text
+            'command_type': 'env',
+            'content': variables[0],
+            'raw_command': node.text.replace('\n', '').lstrip(' ')
         }
         return result
+
+    def visit_env(self, node, visited_children):
+        return "ENV"
+
+    def visit_spaced_key_value(self, node, visited_children):
+        key, _, value = visited_children
+        return {key: value}
+
+    def visit_env_key_value(self, node, visited_children):
+        first_variables, additional_variables = visited_children
+        variables = list()
+        variables += first_variables
+        try:
+            for line in additional_variables:
+                variables += line[1]
+        except:
+            pass
+        return variables
+
+    def visit_env_assignment(self, node, visited_children):
+        _, key, _, value, _ = visited_children
+        return {key: value}
+
+    def visit_env_value(self, node, visited_children):
+        value = visited_children
+        try:
+            env_value = value[0].text
+        except:
+            env_value = value[0]
+        return env_value.replace("\"","")
+
+    def visit_unescaped_env_value(self, node, visited_children):
+        return node.text
+
+    def visit_spaced_env_value(self, node, visited_children):
+        return node.text
 
     # Function for COPY
 

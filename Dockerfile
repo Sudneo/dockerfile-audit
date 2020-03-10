@@ -39,6 +39,10 @@ RUN ["id", "test","test2" , "test4"]
 
 FROM http://test-123.com:4682/image AS test
 
+WORKDIR /path/to/workdir
+
+WORKDIR /path/to\ the/workdir
+
 USER testuser:www-data
 
 USER root:root
@@ -63,9 +67,19 @@ COPY hom?.txt /mydir/
 
 COPY arr[[]0].txt /mydir/
 
-ENV myName="John Doe" myDog=Rex\ The\ Dog \
-    myCat=fluffy
+ENV myName="John Doe" myDog=Rex\ The\ Dog
 
 ENV myName John Doe
 ENV myDog Rex The Dog
-ENV myCat fluffy
+ENV myCat "fluffy"
+
+ENV key1="Va lue1" key2=va\ Lu\ e2 key3=value3 \
+key4=value4 key5=value5 \
+key6=valu6
+
+CMD ["executable","param1","param2"]
+CMD echo "This is a test." | wc -
+
+ENTRYPOINT ["executable", "param1", "param2"]
+
+ENTRYPOINT command param1 param2

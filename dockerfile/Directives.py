@@ -176,6 +176,7 @@ class AddDirective(DockerfileDirective):
             'destination': self.destination
         }
 
+
 class CopyDirective(DockerfileDirective):
 
     def __init__(self, raw_content):
@@ -192,6 +193,32 @@ class CopyDirective(DockerfileDirective):
             'source': self.source,
             'destination': self.destination
         }
+
+
+class EnvDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        self.variables = raw_content['content']
+        super().__init__(DockerfileDirectiveType.ENV, raw_content['raw_command'])
+
+    def get(self):
+        return {
+            'type': str(self.type),
+            'raw_content': self.content,
+            'variables': self.variables
+        }
+
+
+class CmdDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        super().__init__(DockerfileDirectiveType.CMD, raw_content['content'])
+
+
+class EntrypointDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        super().__init__(DockerfileDirectiveType.ENTRYPOINT, raw_content['content'])
 
 
 class Comment(DockerfileDirective):

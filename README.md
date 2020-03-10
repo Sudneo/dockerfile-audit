@@ -4,17 +4,17 @@ Implementation Roadmap
 
 - [X] FROM
 - [X] RUN
-- [ ] CMD
+- [X] CMD
 - [X] LABEL
 - [X] MAINTAINER
 - [X] EXPOSE
-- [ ] ENV - In progress
+- [X] ENV
 - [X] ADD
 - [X] COPY
-- [ ] ENTRYPOINT
+- [X] ENTRYPOINT
 - [ ] VOLUME
 - [X] USER
-- [ ] WORKDIR
+- [ ] WORKDIR - In progress
 - [ ] ARG
 - [ ] ONBUILD
 - [ ] STOPSIGNAL
