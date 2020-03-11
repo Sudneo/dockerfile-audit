@@ -44,7 +44,8 @@ Implementation Roadmap
 
 ToDo:
 
-- [ ] Implement comments parsing between RUN multiline commands
+- [ ] Optimize Grammar, remove duplicate terminals and reduce the number of rules.
+- [ ] Implement comments parsing between RUN multiline commands.
 
 Eventual Features:
 
