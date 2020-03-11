@@ -221,7 +221,61 @@ class EntrypointDirective(DockerfileDirective):
         super().__init__(DockerfileDirectiveType.ENTRYPOINT, raw_content['content'])
 
 
+class WorkdirDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        super().__init__(DockerfileDirectiveType.WORKDIR, raw_content['content'])
+
+
+class VolumeDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        self.volumes = raw_content['content']
+        super().__init__(DockerfileDirectiveType.VOLUME, raw_content['raw_command'])
+
+    def get(self):
+        return {
+            'type': str(self.type),
+            'raw_content': self.content,
+            'volumes': self.volumes
+        }
+
+
+class ShellDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        super().__init__(DockerfileDirectiveType.SHELL, raw_content['content'])
+
+
+class StopsignalDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        self.signal = raw_content['content']
+        super().__init__(DockerfileDirectiveType.STOPSIGNAL, raw_content['raw_command'])
+
+    def get(self):
+        return {
+            'type': str(self.type),
+            'raw_content': self.content,
+            'stopsignal': self.signal
+        }
+
+
+class ArgDirective(DockerfileDirective):
+
+    def __init__(self, raw_content):
+        self.argument = raw_content['content']
+        super().__init__(DockerfileDirectiveType.ARG, raw_content['raw_command'])
+
+    def get(self):
+        return {
+            'type': str(self.type),
+            'raw_content': self.content,
+            'argument': self.argument
+        }
+
+
 class Comment(DockerfileDirective):
 
     def __init__(self, raw_content):
-        super().__init__(DockerfileDirectiveType.COMMENT, raw_content)
+        super().__init__(DockerfileDirectiveType.COMMENT, raw_content['content'])

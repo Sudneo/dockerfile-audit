@@ -37,7 +37,7 @@ EXPOSE 8080/udp 8999/tcp
     --gecos "nginx user" --shell /bin/false --uid 101 nginx
 RUN ["id", "test","test2" , "test4"]
 
-FROM http://test-123.com:4682/image AS test
+FROM    http://test-123.com:4682/image AS test
 
 WORKDIR /path/to/workdir
 
@@ -83,3 +83,15 @@ CMD echo "This is a test." | wc -
 ENTRYPOINT ["executable", "param1", "param2"]
 
 ENTRYPOINT command param1 param2
+
+VOLUME /myvol
+
+VOLUME ["/var/log/"]
+
+VOLUME /var/log /var/db
+
+VOLUME ["/var/log\ long", "log2"]
+
+VOLUME /var\ long/thiswillbreak /volume2
+
+SHELL ["executable", "parameters"]

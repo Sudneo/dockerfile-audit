@@ -10,7 +10,8 @@ grammar = Grammar(
     """
     dockerfile            = (comment / from_command / user_command / run_command / label_command / expose_command /
                              maintainer_command / add_command / copy_command / env_command / cmd_command / 
-                             entrypoint_command / ws)*
+                             entrypoint_command / workdir_command / volume_command / shell_command / 
+                             stopsignal_command / arg_command / ws)*
     from_command          = from spaces (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
     user_command          = user spaces (user_name / user_id) ws
     run_command           = run (run_exec_format / run_shell_format) ws
@@ -22,8 +23,23 @@ grammar = Grammar(
     env_command           = env spaces ( spaced_key_value / env_key_value ) ws
     cmd_command           = cmd spaces ( run_exec_format / cmd_line ) ws
     entrypoint_command    = entrypoint spaces ( run_exec_format / cmd_line ) ws
-    workdir_command       = workdir spaces (word_symbols / spaced_env_value ) ws
+    workdir_command       = workdir spaces cmd_line ws
+    volume_command        = volume spaces ( quoted_list / volume_list ) ws
+    shell_command         = shell run_exec_format ws
+    stopsignal_command    = stopsignal spaces word_symbols ws
+    arg_command           = arg spaces argument ws
     comment               = comment_start sentence* ws
+    
+    arg                   = space* "ARG"
+    argument              = key ( "=" value)? 
+    
+    stopsignal            = space* "STOPSIGNAL"
+    
+    shell                 = space* "SHELL"
+    
+    volume                = space* "VOLUME"
+    volume_list           = volume_value (spaces volume_value )*
+    volume_value          = spaced_env_value / word_symbols
     
     workdir               = space* "WORKDIR"
 
@@ -90,6 +106,7 @@ grammar = Grammar(
     run_shell_format      = multiline_expression
     run_exec_format       = spaces* lpar quoted_word (spaces? "," spaces? quoted_word)* rpar
     
+    quoted_list           = spaces* lpar quoted_word (spaces? "," spaces? quoted_word)* rpar
     quoted_list_min_l     = spaces* lpar quoted_word (spaces? "," spaces? quoted_word)+ rpar
     multiline_expression  = ~r"[^\\\\\\n]+(\\n|\\\\[\s]+([^\\n\\\\]+\\\\[\s]+)*[^\\n\\\\]+\\n)"
     sentence              = spaces* word_symbols (spaces word_symbols)*
@@ -112,47 +129,135 @@ class IniVisitor(NodeVisitor):
 
     def visit_dockerfile(self, node, visited_children):
         """ Returns the overall output. """
-        for line in visited_children:
-            type = line[0]['type']
-            if type == 'comment':
-                content = line[0]['content']
-                if content is not None and content != "":
-                    self.dockerfile.add_directive(Comment(line[0]['content']))
-            if type == 'command':
-                command_type = line[0]['command_type']
-                if command_type == 'from':
-                    self.dockerfile.add_directive(FromDirective(line[0]))
-                elif command_type == 'user':
-                    self.dockerfile.add_directive(UserDirective(line[0]))
-                elif command_type == 'run':
-                    self.dockerfile.add_directive(RunDirective(line[0]))
-                elif command_type == 'label':
-                    self.dockerfile.add_directive(LabelDirective(line[0]))
-                elif command_type == 'expose':
-                    self.dockerfile.add_directive(ExposeDirective(line[0]))
-                elif command_type == 'maintainer':
-                    self.dockerfile.add_directive(MaintainerDirective(line[0]))
-                elif command_type == 'add':
-                    self.dockerfile.add_directive(AddDirective(line[0]))
-                elif command_type == 'copy':
-                    self.dockerfile.add_directive(CopyDirective(line[0]))
-                elif command_type == 'env':
-                    self.dockerfile.add_directive(EnvDirective(line[0]))
-                elif command_type == 'cmd':
-                    self.dockerfile.add_directive(CmdDirective(line[0]))
-                elif command_type == 'entrypoint':
-                    self.dockerfile.add_directive(EntrypointDirective(line[0]))
+        for parsed_line in visited_children:
+            line_type = parsed_line[0]['type']
+            line_content = parsed_line[0]
+            if line_type is DockerfileDirectiveType.FROM:
+                self.dockerfile.add_directive(FromDirective(line_content))
+            elif line_type is DockerfileDirectiveType.USER:
+                self.dockerfile.add_directive(UserDirective(line_content))
+            elif line_type is DockerfileDirectiveType.RUN:
+                self.dockerfile.add_directive(RunDirective(line_content))
+            elif line_type is DockerfileDirectiveType.LABEL:
+                self.dockerfile.add_directive(LabelDirective(line_content))
+            elif line_type is DockerfileDirectiveType.EXPOSE:
+                self.dockerfile.add_directive(ExposeDirective(line_content))
+            elif line_type is DockerfileDirectiveType.MAINTAINER:
+                self.dockerfile.add_directive(MaintainerDirective(line_content))
+            elif line_type is DockerfileDirectiveType.ADD:
+                self.dockerfile.add_directive(AddDirective(line_content))
+            elif line_type is DockerfileDirectiveType.COPY:
+                self.dockerfile.add_directive(CopyDirective(line_content))
+            elif line_type is DockerfileDirectiveType.ENV:
+                self.dockerfile.add_directive(EnvDirective(line_content))
+            elif line_type is DockerfileDirectiveType.ENTRYPOINT:
+                self.dockerfile.add_directive(EntrypointDirective(line_content))
+            elif line_type is DockerfileDirectiveType.WORKDIR:
+                self.dockerfile.add_directive(WorkdirDirective(line_content))
+            elif line_type is DockerfileDirectiveType.VOLUME:
+                self.dockerfile.add_directive(VolumeDirective(line_content))
+            elif line_type is DockerfileDirectiveType.STOPSIGNAL:
+                self.dockerfile.add_directive(StopsignalDirective(line_content))
+            elif line_type is DockerfileDirectiveType.ARG:
+                self.dockerfile.add_directive(ArgDirective(line_content))
+            elif line_type is DockerfileDirectiveType.CMD:
+                self.dockerfile.add_directive(CmdDirective(line_content))
+            elif line_type is DockerfileDirectiveType.COMMENT:
+                self.dockerfile.add_directive(Comment(line_content))
+            else:
+                logger.error(f"Directive type not recognized or not implemented yet: {line_type}")
+                continue
         return self.dockerfile
+
+    # Functions for ARG
+    @staticmethod
+    def visit_arg_command(node, visited_children):
+        _, _, arg, _ = visited_children
+        result = {
+            'type': DockerfileDirectiveType.ARG,
+            'content': arg,
+            'raw_command': node.text.replace('\n', '').lstrip(' ')
+        }
+        return result
+
+    @staticmethod
+    def visit_argument(node, visited_children):
+        key, optional_default = visited_children
+        try:
+            default = optional_default[0][1]
+        except:
+            default = None
+        return {'argument_name': key, 'default_value': default}
+
+    # Functions for STOPSIGNAL
+
+    @staticmethod
+    def visit_stopsignal_command(node, visited_children):
+        _, _, signal, _ = visited_children
+        result = {
+            'type': DockerfileDirectiveType.STOPSIGNAL,
+            'content': {'signal': signal.text},
+            'raw_command': node.text.replace('\n', '').lstrip(' ')
+        }
+        return result
+
+    # Functions for SHELL
+
+    @staticmethod
+    def visit_shell_command(node, visited_children):
+        _, parameters, _ = visited_children
+        result = {
+            'type': DockerfileDirectiveType.SHELL,
+            'content': parameters,
+            'raw_command': node.text.replace('\n', '').lstrip(' ')
+        }
+        return result
+
+    # Functions for VOLUME
+
+    @staticmethod
+    def visit_volume_command(node, visited_children):
+        _, _, volumes, _ = visited_children
+        result = {
+            'type': DockerfileDirectiveType.VOLUME,
+            'content': volumes[0],
+            'raw_command': node.text.replace('\n', '').lstrip(' ')
+        }
+        return result
+
+    @staticmethod
+    def visit_volume_list(node, visited_children):
+        first_volume, additional_volumes = visited_children
+        volumes = list()
+        try:
+            for v in additional_volumes:
+                volumes.append(v[1])
+        except:
+            pass
+        finally:
+            volumes.append(first_volume)
+        return volumes
+
+    @staticmethod
+    def visit_volume_value(node, visited_children):
+        return node.text
 
     # Functions for WORKDIR
 
-    def visit_workdir_command(self, node, visited_children):
-        _, _, path = visited_children
-        return path
+    @staticmethod
+    def visit_workdir_command(node, visited_children):
+        _, _, path, _ = visited_children
+        result = {
+            'type': DockerfileDirectiveType.WORKDIR,
+            'content': path,
+            'raw_command': node.text.replace('\n', '').lstrip(' ')
+        }
+        return result
 
     # Functions for ENTRYPOINT
 
-    def visit_entrypoint_command(self, node, visited_children):
+    @staticmethod
+    def visit_entrypoint_command(node, visited_children):
         _, _, command, _ = visited_children
         try:
             sanitized_command = command[0].text.replace('\n', '').replace('\\', ' ').lstrip(' ')
@@ -160,15 +265,15 @@ class IniVisitor(NodeVisitor):
             sanitized_command = command[0]
         spaces = re.compile('[ ]{2,}')
         normalized_command = spaces.sub(' ', sanitized_command)
-        result = {'type': 'command',
-                  'command_type': "entrypoint",
+        result = {'type': DockerfileDirectiveType.ENTRYPOINT,
                   'content': normalized_command,
                   'raw_command': node.text}
         return result
 
     # Functions for CMD
 
-    def visit_cmd_command(self, node, visited_children):
+    @staticmethod
+    def visit_cmd_command(node, visited_children):
         _, _, command, _ = visited_children
         try:
             sanitized_command = command[0].text.replace('\n', '').replace('\\', ' ').lstrip(' ')
@@ -176,35 +281,34 @@ class IniVisitor(NodeVisitor):
             sanitized_command = command[0]
         spaces = re.compile('[ ]{2,}')
         normalized_command = spaces.sub(' ', sanitized_command)
-        result = {'type': 'command',
-                  'command_type': "cmd",
+        result = {'type': DockerfileDirectiveType.CMD,
                   'content': normalized_command,
                   'raw_command': node.text}
         return result
 
-    def visit_cmd_line(self, node, visited_children):
+    @staticmethod
+    def visit_cmd_line(node, visited_children):
         return node.text
 
     # Functions for ENV
 
-    def visit_env_command(self, node, visited_children):
+    @staticmethod
+    def visit_env_command(node, visited_children):
         _, _, variables, _ = visited_children
         result = {
-            'type': 'command',
-            'command_type': 'env',
+            'type': DockerfileDirectiveType.ENV,
             'content': variables[0],
             'raw_command': node.text.replace('\n', '').lstrip(' ')
         }
         return result
 
-    def visit_env(self, node, visited_children):
-        return "ENV"
-
-    def visit_spaced_key_value(self, node, visited_children):
+    @staticmethod
+    def visit_spaced_key_value(node, visited_children):
         key, _, value = visited_children
         return {key: value}
 
-    def visit_env_key_value(self, node, visited_children):
+    @staticmethod
+    def visit_env_key_value(node, visited_children):
         first_variables, additional_variables = visited_children
         variables = list()
         variables += first_variables
@@ -215,11 +319,13 @@ class IniVisitor(NodeVisitor):
             pass
         return variables
 
-    def visit_env_assignment(self, node, visited_children):
+    @staticmethod
+    def visit_env_assignment(node, visited_children):
         _, key, _, value, _ = visited_children
         return {key: value}
 
-    def visit_env_value(self, node, visited_children):
+    @staticmethod
+    def visit_env_value(node, visited_children):
         value = visited_children
         try:
             env_value = value[0].text
@@ -227,23 +333,25 @@ class IniVisitor(NodeVisitor):
             env_value = value[0]
         return env_value.replace("\"","")
 
-    def visit_unescaped_env_value(self, node, visited_children):
+    @staticmethod
+    def visit_unescaped_env_value(node, visited_children):
         return node.text
 
-    def visit_spaced_env_value(self, node, visited_children):
+    @staticmethod
+    def visit_spaced_env_value(node, visited_children):
         return node.text
 
     # Function for COPY
 
-    def visit_copy_command(self, node, visited_children):
+    @staticmethod
+    def visit_copy_command(node, visited_children):
         _, _, chown, files, _ = visited_children
         try:
             chown_structure = chown[0][0]
         except:
             chown_structure = None
         result = {
-            'type': 'command',
-            'command_type': 'copy',
+            'type': DockerfileDirectiveType.COPY,
             'content': {'chown': chown_structure,
                         'source': files[0]['sources'],
                         'destination': files[0]['destination']
@@ -251,21 +359,18 @@ class IniVisitor(NodeVisitor):
             'raw_command': node.text.replace('\n', '').lstrip(' ')
         }
         return result
-
-    def visit_copy(self, node, visited_children):
-        return "COPY"
 
     # Function for ADD
 
-    def visit_add_command(self, node, visited_children):
+    @staticmethod
+    def visit_add_command(node, visited_children):
         _, _, chown, files, _ = visited_children
         try:
             chown_structure = chown[0][0]
         except:
             chown_structure = None
         result = {
-            'type': 'command',
-            'command_type': 'add',
+            'type': DockerfileDirectiveType.ADD,
             'content': {'chown': chown_structure,
                         'source': files[0]['sources'],
                         'destination': files[0]['destination']
@@ -274,7 +379,8 @@ class IniVisitor(NodeVisitor):
         }
         return result
 
-    def visit_chown(self, node, visited_children):
+    @staticmethod
+    def visit_chown(node, visited_children):
         _, user_group = visited_children
         try:
             group = user_group[1][0][1][0]
@@ -282,7 +388,8 @@ class IniVisitor(NodeVisitor):
             group = None
         return {'user': user_group[0][0], 'group': group}
 
-    def visit_linear_add(self, node, visited_children):
+    @staticmethod
+    def visit_linear_add(node, visited_children):
         first_path, _, second_path, additional_paths = visited_children
         sources = list()
         try:
@@ -296,7 +403,8 @@ class IniVisitor(NodeVisitor):
             sources.append(first_path.text)
         return {'sources': sources, 'destination': destination}
 
-    def visit_quoted_list_min_l(self, node, visited_children):
+    @staticmethod
+    def visit_quoted_list_min_l(node, visited_children):
         _, _, item, items, _ = visited_children
         arguments = [item.text.replace("\"", "")]
         for i in items:
@@ -308,7 +416,8 @@ class IniVisitor(NodeVisitor):
 
     # Functions for MAINTAINER
 
-    def visit_maintainer_command(self, node, visited_children):
+    @staticmethod
+    def visit_maintainer_command(node, visited_children):
         _, first_maintainer, additional_maintainers, _ = visited_children
         maintainers = list()
         try:
@@ -319,35 +428,30 @@ class IniVisitor(NodeVisitor):
         finally:
             maintainers.append(first_maintainer)
         result = {
-            'type': 'command',
-            'command_type': 'maintainer',
+            'type': DockerfileDirectiveType.MAINTAINER,
             'content': maintainers,
             'raw_command': node.text.replace('\n', '').lstrip(' ')
         }
         return result
 
-    def visit_maintainer(self, node, visited_children):
-        return "MAINTAINER"
-
-    def visit_maintainer_name(self, node, visited_children):
+    @staticmethod
+    def visit_maintainer_name(node, visited_children):
         return node.text.lstrip(' ')
 
     # Fucntions for EXPOSE
 
-    def visit_expose_command(self, node, visited_children):
+    @staticmethod
+    def visit_expose_command(node, visited_children):
         _, _, ports, _ = visited_children
         result = {
-            'type': 'command',
-            'command_type': 'expose',
+            'type': DockerfileDirectiveType.EXPOSE,
             'content': ports,
             'raw_command': node.text.replace('\n', '').lstrip(' ')
         }
         return result
 
-    def visit_expose(self, node, visited_children):
-        return "EXPOSE"
-
-    def visit_ports(self, node, visited_children):
+    @staticmethod
+    def visit_ports(node, visited_children):
         first_port, additional_ports = visited_children
         ports = list()
         try:
@@ -359,7 +463,8 @@ class IniVisitor(NodeVisitor):
             ports.append(first_port)
         return ports
 
-    def visit_expose_port(self, node, visited_children):
+    @staticmethod
+    def visit_expose_port(node, visited_children):
         port, protocol = visited_children
         try:
             protocol_name = protocol[0][1]
@@ -367,50 +472,49 @@ class IniVisitor(NodeVisitor):
             protocol_name = "tcp"
         return {'port': port, 'protocol': protocol_name}
 
-    def visit_port_protocol(self, node, visited_children):
+    @staticmethod
+    def visit_port_protocol(node, visited_children):
         protocol = visited_children
         return protocol[0]
 
-    def visit_tcp(self, node, visited_children):
-        return "tcp"
-
-    def visit_udp(self, node, visited_children):
-        return "udp"
-
     # Functions for LABEL
-    def visit_label_command(self, node, visited_children):
+
+    @staticmethod
+    def visit_label_command(node, visited_children):
         _, _, labels, _ = visited_children
         result = {
-            'type': 'command',
-            'command_type': 'label',
+            'type': DockerfileDirectiveType.LABEL,
             'content': labels,
             'raw_command': node.text
         }
         return result
 
-    def visit_key_value_line_end(self, node, visited_children):
+    @staticmethod
+    def visit_key_value_line_end(node, visited_children):
         keypairs, _ = visited_children
         return keypairs
 
-    def visit_key_value_line_cont(self, node, visited_children):
+    @staticmethod
+    def visit_key_value_line_cont(node, visited_children):
         keypairs, _ = visited_children
         return keypairs
 
-    def visit_keyvalue(self, node, visited_children):
+    @staticmethod
+    def visit_keyvalue(node, visited_children):
         _, key, _, value, _ = visited_children
         return {key: value}
 
-    def visit_key(self, node, visited_children):
+    @staticmethod
+    def visit_key(node, visited_children):
         sanitized_key = node.text.replace('\n', '').replace('\\', ' ').replace('\"', '').lstrip(' ')
         return sanitized_key
 
-    def visit_value(self, node, visited_children):
+    @staticmethod
+    def visit_value(node, visited_children):
         return node.text.replace('\"', '')
 
-    def visit_label(self, node, visited_children):
-        return "LABEL"
-
-    def visit_labels(self, node, visited_children):
+    @staticmethod
+    def visit_labels(node, visited_children):
         continued_lines, ending_line = visited_children
         labels = list()
         try:
@@ -422,8 +526,8 @@ class IniVisitor(NodeVisitor):
         return labels
 
     # Functions for RUN
-
-    def visit_run_command(self, node, visited_children):
+    @staticmethod
+    def visit_run_command(node, visited_children):
         _, command, _ = visited_children
         try:
             sanitized_command = command[0].text.replace('\n', '').replace('\\', ' ').lstrip(' ')
@@ -431,19 +535,17 @@ class IniVisitor(NodeVisitor):
             sanitized_command = command[0]
         spaces = re.compile('[ ]{2,}')
         normalized_command = spaces.sub(' ', sanitized_command)
-        result = {'type': 'command',
-                  'command_type': "run",
+        result = {'type': DockerfileDirectiveType.RUN,
                   'content': normalized_command,
                   'raw_command': node.text.rstrip('\n')}
         return result
 
-    def visit_run(self, node, visited_children):
-        return "RUN"
-
-    def visit_run_shell_format(self, node, visited_children):
+    @staticmethod
+    def visit_run_shell_format(node, visited_children):
         return node.text
 
-    def visit_run_exec_format(self, node, visited_children):
+    @staticmethod
+    def visit_run_exec_format(node, visited_children):
         _, _, cmd, cmds, _ = visited_children
         commands = [cmd.text.replace("\"", "")]
         for item in cmds:
@@ -453,19 +555,17 @@ class IniVisitor(NodeVisitor):
 
     # Functions for USER
 
-    def visit_user_command(self, node, visited_children):
+    @staticmethod
+    def visit_user_command(node, visited_children):
         _, _, user, _ = visited_children
-        result = {'type': 'command',
-                  'command_type': 'user',
+        result = {'type': DockerfileDirectiveType.USER,
                   'content': user[0],
                   'raw_command': node.text.rstrip('\n')
                   }
         return result
 
-    def visit_user(self, node, visited_children):
-        return "USER"
-
-    def visit_user_name(self, node, visited_children):
+    @staticmethod
+    def visit_user_name(node, visited_children):
         user, group = visited_children
         try:
             unix_group = group[0][1]
@@ -473,7 +573,8 @@ class IniVisitor(NodeVisitor):
         except:
             return {'user': user, 'group': None}
 
-    def visit_user_id(self, node, visited_children):
+    @staticmethod
+    def visit_user_id(node, visited_children):
         user, group = visited_children
         try:
             unix_group = group[0][1]
@@ -481,15 +582,18 @@ class IniVisitor(NodeVisitor):
         except:
             return {'user': user, 'group': None}
 
-    def visit_unix_user(self, node, visited_children):
+    @staticmethod
+    def visit_unix_user(node, visited_children):
         return node.text
 
-    def visit_unix_uid(self, node, visited_children):
+    @staticmethod
+    def visit_unix_uid(node, visited_children):
         return node.text
 
     # Functions for FROM
 
-    def visit_from_command(self, node, visited_children):
+    @staticmethod
+    def visit_from_command(node, visited_children):
         _, _, platform, registry, image_name, tag_or_digest, local_name, _ = visited_children
         try:
             local_build_name = local_name[0]
@@ -503,8 +607,7 @@ class IniVisitor(NodeVisitor):
             tag = tag_or_digest[0][0]
         except:
             tag = "latest"
-        result = {"type": "command",
-                  "command_type": "from",
+        result = {"type": DockerfileDirectiveType.FROM,
                   "content":
                       {
                        "image": image_name.text,
@@ -516,14 +619,13 @@ class IniVisitor(NodeVisitor):
                   }
         return result
 
-    def visit_from(self, node, visited_children):
-        return "FROM"
-
-    def visit_platform(self, node, visited_children):
+    @staticmethod
+    def visit_platform(node, visited_children):
         _, platform, _ = visited_children
         return platform.text
 
-    def visit_registry(self, node, visited_children):
+    @staticmethod
+    def visit_registry(node, visited_children):
         host, port, _ = visited_children
         try:
             port_number = port[0][1]
@@ -532,7 +634,8 @@ class IniVisitor(NodeVisitor):
             registry_url = host
         return registry_url
 
-    def visit_host(self, node, visited_children):
+    @staticmethod
+    def visit_host(node, visited_children):
         protocol, host = visited_children
         try:
             proto = protocol[0]
@@ -540,36 +643,47 @@ class IniVisitor(NodeVisitor):
         except:
             return host.text
 
-    def visit_protocol(self, node, visited_children):
+    @staticmethod
+    def visit_protocol(node, visited_children):
         return node.text
 
-    def visit_port(self, node, visited_children):
+    @staticmethod
+    def visit_port(node, visited_children):
         return node.text
 
-    def visit_image_name(self, node, visited_children):
+    @staticmethod
+    def visit_image_name(node, visited_children):
         return node
 
-    def visit_image_tag(self, node, visited_children):
+    @staticmethod
+    def visit_image_tag(node, visited_children):
         _, tag = visited_children
         return tag.text
 
-    def visit_digest(self, node, visited_children):
+    @staticmethod
+    def visit_digest(node, visited_children):
         _, algorithm, _, digest = visited_children
         return f"@{algorithm.text}:{digest.text}"
 
-    def visit_local_name(self, node, visited_children):
+    @staticmethod
+    def visit_local_name(node, visited_children):
         _, _, _, name = visited_children
         return name.text
 
     # Functions for COMMENT
-    def visit_comment(self, node, visited_children):
+
+    @staticmethod
+    def visit_comment(node, visited_children):
         _, comment, _ = visited_children
         comment_sentence = ""
         for item in comment:
             comment_sentence += f"{item}"
-        return {"type": "comment", "content": comment_sentence}
+        return {"type": DockerfileDirectiveType.COMMENT,
+                "content": comment_sentence
+                }
 
-    def visit_sentence(self, node, visited_children):
+    @staticmethod
+    def visit_sentence(node, visited_children):
         _, word, words = visited_children
         sentence = ""
         if word is not None:
@@ -578,13 +692,24 @@ class IniVisitor(NodeVisitor):
             sentence += f" {words[0][1].text}"
         return sentence
 
-    def visit_comment_start(self, node, visited_children):
+    @staticmethod
+    def visit_comment_start(node, visited_children):
         _, hashtag, _ = visited_children
         return hashtag.text
 
     # END of functions for COMMENT
 
-    def visit_ws(self, node, visited_children):
+    @staticmethod
+    def visit_quoted_list(node, visited_children):
+        _, _, part, parts, _ = visited_children
+        items = [part.text.replace("\"", "")]
+        for item in parts:
+            item_part = item[3]
+            items.append(item_part.text.replace("\"", ""))
+        return items
+
+    @staticmethod
+    def visit_ws(node, visited_children):
         return node.text
 
     def generic_visit(self, node, visited_children):
@@ -592,9 +717,16 @@ class IniVisitor(NodeVisitor):
         return visited_children or node
 
 
-with open('Dockerfile') as f:
+with open('Dockerfile-test') as f:
     data = f.read()
-    tree = grammar.parse(data)
+    data_no_comments = list()
+    lines = data.split('\n')
+    for line in lines:
+        if len(line.lstrip(' ')) > 0:
+            if line.lstrip(' ')[0] != "#":
+                data_no_comments.append(line)
+    dockerfile = '\n'.join(data_no_comments)
+    tree = grammar.parse(dockerfile)
     iv = IniVisitor()
     output = iv.visit(tree)
     print(json.dumps(output.get_directives(), indent=2))
