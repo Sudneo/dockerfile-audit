@@ -44,8 +44,8 @@ Implementation Roadmap
 
 ToDo:
 
-[ ] Implement comments parsing between RUN multiline commands
+- [ ] Implement comments parsing between RUN multiline commands
 
 Eventual Features:
 
-[ ] Support $( ) arguments to commands (e.g., USER $(user:-user))
+- [ ] Support $( ) arguments to commands (e.g., USER $(user:-user))
