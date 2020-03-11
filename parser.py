@@ -78,7 +78,7 @@ grammar = Grammar(
     key_value_line_end    = keyvalue+ "\\n"
     key_value_line_cont   = keyvalue+ line_continuation
     line_continuation     = ~r"(\\\\[\\n]+)"
-    keyvalue              = spaces* key "=" value spaces*
+    keyvalue              = spaces* key ("=" / spaces ) value spaces*
     key                   = (quoted_word / ~r'[^\\\"\\n\\t\\r= ]+')
     value                 = (quoted_word / word_symbols)
     
@@ -125,7 +125,9 @@ grammar = Grammar(
 
 class IniVisitor(NodeVisitor):
 
-    dockerfile = Dockerfile()
+    def __init__(self):
+        self.dockerfile = Dockerfile()
+        super().__init__()
 
     def visit_dockerfile(self, node, visited_children):
         """ Returns the overall output. """
@@ -717,19 +719,19 @@ class IniVisitor(NodeVisitor):
         return visited_children or node
 
 
-with open('Dockerfile-test') as f:
-    data = f.read()
-    data_no_comments = list()
-    lines = data.split('\n')
-    for line in lines:
-        if len(line.lstrip(' ').lstrip('\t')) > 0:
-            if line.lstrip(' ').lstrip('\t')[0] != "#":
-                data_no_comments.append(line)
-    dockerfile = '\n'.join(data_no_comments)
-    tree = grammar.parse(dockerfile)
-    iv = IniVisitor()
-    output = iv.visit(tree)
-    print(json.dumps(output.get_directives(), indent=2))
-    json.dump(output.get_directives(), indent=4, sort_keys=True, fp=open('result.json', 'w'))
+# with open('Dockerfile-test') as f:
+#     data = f.read()
+#     data_no_comments = list()
+#     lines = data.split('\n')
+#     for line in lines:
+#         if len(line.lstrip(' ').lstrip('\t')) > 0:
+#             if line.lstrip(' ').lstrip('\t')[0] != "#":
+#                 data_no_comments.append(line)
+#     dockerfile = '\n'.join(data_no_comments)
+#     tree = grammar.parse(dockerfile)
+#     iv = IniVisitor()
+#     output = iv.visit(tree)
+#     print(json.dumps(output.get_directives(), indent=2))
+#     json.dump(output.get_directives(), indent=4, sort_keys=True, fp=open('result.json', 'w'))
 
 

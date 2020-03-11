@@ -46,6 +46,9 @@ ToDo:
 
 - [ ] Optimize Grammar, remove duplicate terminals and reduce the number of rules.
 - [ ] Implement comments parsing between RUN multiline commands.
+- [ ] Review RUN command parsing
+- [ ] FROM command breaks when registry has more than a "/"
+- [ ] LABEL sometimes breaks
 
 Eventual Features:
 
