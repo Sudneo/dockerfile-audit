@@ -722,8 +722,8 @@ with open('Dockerfile-test') as f:
     data_no_comments = list()
     lines = data.split('\n')
     for line in lines:
-        if len(line.lstrip(' ')) > 0:
-            if line.lstrip(' ')[0] != "#":
+        if len(line.lstrip(' ').lstrip('\t')) > 0:
+            if line.lstrip(' ').lstrip('\t')[0] != "#":
                 data_no_comments.append(line)
     dockerfile = '\n'.join(data_no_comments)
     tree = grammar.parse(dockerfile)
