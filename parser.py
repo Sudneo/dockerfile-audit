@@ -14,18 +14,18 @@ grammar = Grammar(
                              stopsignal_command / arg_command / ws)*
     from_command          = from spaces (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
     user_command          = user spaces (user_name / user_id) ws
-    run_command           = run (run_exec_format / run_shell_format) ws
+    run_command           = run (quoted_list / multiline_statement) ws
     label_command         = label spaces labels ws
     expose_command        = expose spaces ports ws
     maintainer_command    = maintainer maintainer_name (spaces* "," spaces* maintainer_name)* ws
-    add_command           = add spaces (chown spaces)? ( quoted_list_min_l / linear_add ) ws
-    copy_command          = copy spaces (chown spaces)? ( quoted_list_min_l / linear_add ) ws
+    add_command           = add space+ (chown spaces)? ( quoted_list_min_l / multiline_statement ) ws
+    copy_command          = copy space+ (chown spaces)? ( quoted_list_min_l / multiline_statement ) ws
     env_command           = env spaces ( spaced_key_value / env_key_value ) ws
-    cmd_command           = cmd spaces ( run_exec_format / cmd_line ) ws
-    entrypoint_command    = entrypoint spaces ( run_exec_format / cmd_line ) ws
+    cmd_command           = cmd spaces ( quoted_list / multiline_statement ) ws
+    entrypoint_command    = entrypoint spaces ( quoted_list / multiline_statement ) ws
     workdir_command       = workdir spaces cmd_line ws
     volume_command        = volume spaces ( quoted_list / volume_list ) ws
-    shell_command         = shell run_exec_format ws
+    shell_command         = shell quoted_list ws
     stopsignal_command    = stopsignal spaces word_symbols ws
     arg_command           = arg spaces argument ws
     comment               = comment_start sentence* ws
@@ -46,9 +46,9 @@ grammar = Grammar(
     entrypoint            = space* "ENTRYPOINT"
 
     cmd                   = space* "CMD"
-    cmd_line              = ~"[^\\n]+"
+    cmd_line              = ~".+"
     
-    env                   = spaces* "ENV"
+    env                   = space* ("ENV" / "env")
     spaced_key_value      = key spaces unescaped_env_value
     env_key_value         = env_assignment+ ( line_continuation env_assignment+)*
     env_assignment        = space* key "=" env_value space*
@@ -61,14 +61,14 @@ grammar = Grammar(
     add                   = spaces* "ADD"
     
     chown                 = "--chown=" unix_user_group
-    linear_add            = word_symbols spaces word_symbols ( spaces word_symbols)*
+    linear_add            = word_symbols space+ word_symbols (space+ word_symbols)*
     
     maintainer            = spaces* "MAINTAINER"
-    maintainer_name       = ~r'[^\\\"\\n\\t\\r=,]+'
+    maintainer_name       = ~r'[^\\n\\t\\r=,]+'
     
     expose                = spaces* "EXPOSE"
-    ports                 = expose_port ( spaces expose_port )*
-    expose_port           = port ( "/" port_protocol )?
+    ports                 = expose_port ( space+ line_continuation? space* expose_port )*
+    expose_port           = ( ( port ( "/" port_protocol )? ) / ( "$" word_symbols ) )
     port_protocol         = ( tcp / udp )
     tcp                   = ( "TCP" / "tcp" )
     udp                   = ( "UDP" / "udp" )
@@ -78,9 +78,9 @@ grammar = Grammar(
     key_value_line_end    = keyvalue+ "\\n"
     key_value_line_cont   = keyvalue+ line_continuation
     line_continuation     = ~r"(\\\\[\\n]+)"
-    keyvalue              = spaces* key ("=" / spaces ) value spaces*
-    key                   = (quoted_word / ~r'[^\\\"\\n\\t\\r= ]+')
-    value                 = (quoted_word / word_symbols)
+    keyvalue              = space* key ( (space* "=" space*) / space+ )  value space*
+    key                   = (quoted_word / word_not_equal )
+    value                 = (quoted_word / word_symbols )
     
     from                  = spaces* "FROM"
     platform              = "--platform=" word_symbols spaces
@@ -89,7 +89,7 @@ grammar = Grammar(
     protocol              = ("https://" / "http://")
     port                  = ~"[0-9]{1,5}"
     image_name            = ~"[a-zA-Z0-9][a-zA-Z0-9_.-]+"
-    image_tag             = ":" ~"[\w][\w.-]{0,127}"
+    image_tag             = ":" ~"[\w$][\w.-]{0,127}"
     digest                = "@" algorithm ":" hash
     algorithm             = ~"[a-zA-Z0-9]+"
     hash                  = ~"[a-z0-9]{32,}"
@@ -104,14 +104,20 @@ grammar = Grammar(
     
     run                   = spaces* "RUN"
     run_shell_format      = multiline_expression
-    run_exec_format       = spaces* lpar quoted_word (spaces? "," spaces? quoted_word)* rpar
+    multiline_statement   = (line_backslash)* line_end
+    line_backslash        = ~r".*[\\\\][\\n]+"
+    line_end              = ~r".*[^\\\\]"
     
-    quoted_list           = spaces* lpar quoted_word (spaces? "," spaces? quoted_word)* rpar
-    quoted_list_min_l     = spaces* lpar quoted_word (spaces? "," spaces? quoted_word)+ rpar
+    space_escaped_string  = ~r"[\S]+((\\\\ [\S]+)*\\\\ )[\S]*"
+    quoted_list           = space* lpar quoted_word (spaces? "," space? quoted_word)* rpar
+    quoted_list_min_l     = space* lpar quoted_word (spaces? "," space? quoted_word)+ rpar
     multiline_expression  = ~r"[^\\\\\\n]+(\\n|\\\\[\s]+([^\\n\\\\]+\\\\[\s]+)*[^\\n\\\\]+\\n)"
     sentence              = spaces* word_symbols (spaces word_symbols)*
-    quoted_word           = ~r'"[^\\\"]+"'
-    comment_start         = spaces* hashtag spaces*
+    quoted_word           = (single_quoted_word / double_quoted_word)
+    single_quoted_word    = ~r"'[^']+'"
+    double_quoted_word    = ~r'"[^\\\\\\"]+"'
+    word_not_equal        = ~r'[^\\\"\\n\\t\\r= ]+'
+    comment_start         = space* hashtag space*
     hashtag               = "#"
     spaces                = space+
     space                 = " "
@@ -264,7 +270,7 @@ class IniVisitor(NodeVisitor):
         try:
             sanitized_command = command[0].text.replace('\n', '').replace('\\', ' ').lstrip(' ')
         except:
-            sanitized_command = command[0]
+            sanitized_command = command[0][0]
         spaces = re.compile('[ ]{2,}')
         normalized_command = spaces.sub(' ', sanitized_command)
         result = {'type': DockerfileDirectiveType.ENTRYPOINT,
@@ -277,10 +283,7 @@ class IniVisitor(NodeVisitor):
     @staticmethod
     def visit_cmd_command(node, visited_children):
         _, _, command, _ = visited_children
-        try:
-            sanitized_command = command[0].text.replace('\n', '').replace('\\', ' ').lstrip(' ')
-        except:
-            sanitized_command = command[0]
+        sanitized_command = command[0]
         spaces = re.compile('[ ]{2,}')
         normalized_command = spaces.sub(' ', sanitized_command)
         result = {'type': DockerfileDirectiveType.CMD,
@@ -352,11 +355,15 @@ class IniVisitor(NodeVisitor):
             chown_structure = chown[0][0]
         except:
             chown_structure = None
+        files[0].replace('\ ', '$SPACE')
+        files_copied = files[0].split(' ')
+        destination = files_copied[-1]
+        sources = files_copied[:-1]
         result = {
             'type': DockerfileDirectiveType.COPY,
             'content': {'chown': chown_structure,
-                        'source': files[0]['sources'],
-                        'destination': files[0]['destination']
+                        'source': sources,
+                        'destination': destination
                         },
             'raw_command': node.text.replace('\n', '').lstrip(' ')
         }
@@ -371,11 +378,15 @@ class IniVisitor(NodeVisitor):
             chown_structure = chown[0][0]
         except:
             chown_structure = None
+        files[0].replace('\ ', '$SPACE')
+        files_copied = files[0].split(' ')
+        destination = files_copied[-1]
+        sources = files_copied[:-1]
         result = {
             'type': DockerfileDirectiveType.ADD,
             'content': {'chown': chown_structure,
-                        'source': files[0]['sources'],
-                        'destination': files[0]['destination']
+                        'source': sources,
+                        'destination': destination
                         },
             'raw_command': node.text.replace('\n', '').lstrip(' ')
         }
@@ -408,13 +419,13 @@ class IniVisitor(NodeVisitor):
     @staticmethod
     def visit_quoted_list_min_l(node, visited_children):
         _, _, item, items, _ = visited_children
-        arguments = [item.text.replace("\"", "")]
+        arguments = [item.replace("\"", "")]
         for i in items:
             item_part = i[3]
-            arguments.append(item_part.text.replace("\"", ""))
+            arguments.append(item_part.replace("\"", ""))
         sources = arguments[:-1]
         destination = arguments[-1]
-        return {'sources': sources, 'destination': destination}
+        return ' '.join(arguments)
 
     # Functions for MAINTAINER
 
@@ -445,9 +456,15 @@ class IniVisitor(NodeVisitor):
     @staticmethod
     def visit_expose_command(node, visited_children):
         _, _, ports, _ = visited_children
+        try:
+            port = list()
+            for item in ports[1]:
+                port.append(item)
+        except:
+            port = ports
         result = {
             'type': DockerfileDirectiveType.EXPOSE,
-            'content': ports,
+            'content': port,
             'raw_command': node.text.replace('\n', '').lstrip(' ')
         }
         return result
@@ -467,12 +484,12 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_expose_port(node, visited_children):
-        port, protocol = visited_children
+        ports_struct = visited_children
         try:
-            protocol_name = protocol[0][1]
+            protocol_name = ports_struct[0][1][0][1][0].text
         except:
             protocol_name = "tcp"
-        return {'port': port, 'protocol': protocol_name}
+        return {'port': ports_struct[0][0], 'protocol': protocol_name}
 
     @staticmethod
     def visit_port_protocol(node, visited_children):
@@ -531,12 +548,9 @@ class IniVisitor(NodeVisitor):
     @staticmethod
     def visit_run_command(node, visited_children):
         _, command, _ = visited_children
-        try:
-            sanitized_command = command[0].text.replace('\n', '').replace('\\', ' ').lstrip(' ')
-        except:
-            sanitized_command = command[0]
+        run_cmd = command[0]
         spaces = re.compile('[ ]{2,}')
-        normalized_command = spaces.sub(' ', sanitized_command)
+        normalized_command = spaces.sub(' ', run_cmd)
         result = {'type': DockerfileDirectiveType.RUN,
                   'content': normalized_command,
                   'raw_command': node.text.rstrip('\n')}
@@ -685,6 +699,10 @@ class IniVisitor(NodeVisitor):
                 }
 
     @staticmethod
+    def visit_quoted_word(node, visited_childre):
+        return node.text.replace('"', '').replace("'", "")
+
+    @staticmethod
     def visit_sentence(node, visited_children):
         _, word, words = visited_children
         sentence = ""
@@ -702,13 +720,27 @@ class IniVisitor(NodeVisitor):
     # END of functions for COMMENT
 
     @staticmethod
+    def visit_multiline_statement(node, visited_children):
+        optional_lines, last_line = visited_children
+        statement = list()
+        try:
+            for line in optional_lines:
+                statement.append(line.text.replace('\n', '').lstrip(' ').replace('\t', '').replace('\\', ''))
+        except:
+            pass
+        finally:
+            statement.append(last_line.text.replace('\n', '').lstrip(' ').replace('\t', ''))
+        command = ' '.join(statement)
+        return command
+
+    @staticmethod
     def visit_quoted_list(node, visited_children):
         _, _, part, parts, _ = visited_children
-        items = [part.text.replace("\"", "")]
+        items = [part.replace("\"", "")]
         for item in parts:
             item_part = item[3]
-            items.append(item_part.text.replace("\"", ""))
-        return items
+            items.append(item_part.replace("\"", ""))
+        return ' '.join(items)
 
     @staticmethod
     def visit_ws(node, visited_children):
@@ -719,7 +751,7 @@ class IniVisitor(NodeVisitor):
         return visited_children or node
 
 
-# with open('Dockerfile-test') as f:
+# with open('Dockerfile') as f:
 #     data = f.read()
 #     data_no_comments = list()
 #     lines = data.split('\n')
@@ -731,6 +763,7 @@ class IniVisitor(NodeVisitor):
 #     tree = grammar.parse(dockerfile)
 #     iv = IniVisitor()
 #     output = iv.visit(tree)
+#     directives = output.get_directives()
 #     print(json.dumps(output.get_directives(), indent=2))
 #     json.dump(output.get_directives(), indent=4, sort_keys=True, fp=open('result.json', 'w'))
 
