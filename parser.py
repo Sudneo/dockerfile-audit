@@ -52,8 +52,8 @@ grammar = Grammar(
     env_key_value         = env_assignment+ ( line_continuation env_assignment+)*
     env_assignment        = space* key "=" env_value space*
     env_value             = ( spaced_env_value / quoted_word / word_symbols )
-    unescaped_env_value   = ~r"[\S ]+"
-    spaced_env_value      = ~r"[\S]+((\\\\ [\S]+)*\\\\ )[\S]*"
+    unescaped_env_value   = ~r"[\\S ]+"
+    spaced_env_value      = ~r"[\\S]+((\\\\ [\\S]+)*\\\\ )[\\S]*"
         
     copy                  = space* "COPY"
 
@@ -88,7 +88,7 @@ grammar = Grammar(
     protocol              = ("https://" / "http://")
     port                  = ~"[0-9]{1,5}"
     image_name            = ~"[a-zA-Z0-9][a-zA-Z0-9_.\\-/]+"
-    image_tag             = ":" ~"[\w$][\w.-]{0,127}"
+    image_tag             = ":" ~"[\\w$][\\w.-]{0,127}"
     digest                = "@" algorithm ":" hash
     algorithm             = ~"[a-zA-Z0-9]+"
     hash                  = ~"[a-z0-9]{32,}"
@@ -102,12 +102,11 @@ grammar = Grammar(
     unix_uid              = ~"[0-9]{1,5}"
     
     run                   = space* "RUN"
-    run_shell_format      = multiline_statement
     multiline_statement   = (line_backslash)* line_end
     line_backslash        = ~r".*[\\\\][\\n]+"
     line_end              = ~r".*[^\\\\]"
     
-    space_escaped_string  = ~r"[\S]+((\\\\ [\S]+)*\\\\ )[\S]*"
+    space_escaped_string  = ~r"[\\S]+((\\\\ [\\S]+)*\\\\ )[\\S]*"
     quoted_list           = space* lpar quoted_word (space? "," space? quoted_word)* rpar
     quoted_list_min_l     = space* lpar quoted_word (space? "," space? quoted_word)+ rpar
     quoted_word           = (single_quoted_word / double_quoted_word)
@@ -119,8 +118,8 @@ grammar = Grammar(
     space                 = " "
     lpar                  = "["
     rpar                  = "]"
-    word_symbols          = ~"[\S]+"
-    ws                    = ~"[\s]*"
+    word_symbols          = ~"[\\S]+"
+    ws                    = ~"[\\s]*"
     any                   = ~"[.]*"
     """
 )
@@ -133,6 +132,7 @@ class IniVisitor(NodeVisitor):
         super().__init__()
 
     def visit_dockerfile(self, node, visited_children):
+        del node
         """ Returns the overall output. """
         for parsed_line in visited_children:
             line_type = parsed_line[0]['type']
@@ -187,10 +187,11 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_argument(node, visited_children):
+        del node
         key, optional_default = visited_children
         try:
             default = optional_default[0][1]
-        except:
+        except IndexError:
             default = None
         return {'argument_name': key, 'default_value': default}
 
@@ -232,12 +233,13 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_volume_list(node, visited_children):
+        del node
         first_volume, additional_volumes = visited_children
         volumes = list()
         try:
             for v in additional_volumes:
                 volumes.append(v[1])
-        except:
+        except IndexError:
             pass
         finally:
             volumes.append(first_volume)
@@ -245,6 +247,7 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_volume_value(node, visited_children):
+        del visited_children
         return node.text
 
     # Functions for WORKDIR
@@ -266,7 +269,7 @@ class IniVisitor(NodeVisitor):
         _, _, command, _ = visited_children
         try:
             sanitized_command = command[0].text.replace('\n', '').replace('\\', ' ').lstrip(' ')
-        except:
+        except AttributeError:
             sanitized_command = command[0][0]
         spaces = re.compile('[ ]{2,}')
         normalized_command = spaces.sub(' ', sanitized_command)
@@ -290,6 +293,7 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_cmd_line(node, visited_children):
+        del visited_children
         return node.text
 
     # Functions for ENV
@@ -306,42 +310,38 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_spaced_key_value(node, visited_children):
+        del node
         key, _, value = visited_children
         return {key: value}
 
     @staticmethod
     def visit_env_key_value(node, visited_children):
+        del node
         first_variables, additional_variables = visited_children
         variables = list()
         variables += first_variables
         try:
             for line in additional_variables:
                 variables += line[1]
-        except:
+        except IndexError:
             pass
         return variables
 
     @staticmethod
     def visit_env_assignment(node, visited_children):
+        del node
         _, key, _, value, _ = visited_children
         return {key: value}
 
     @staticmethod
     def visit_env_value(node, visited_children):
+        del node
         value = visited_children
         try:
             env_value = value[0].text
-        except:
+        except AttributeError:
             env_value = value[0]
-        return env_value.replace("\"","")
-
-    @staticmethod
-    def visit_unescaped_env_value(node, visited_children):
-        return node.text
-
-    @staticmethod
-    def visit_spaced_env_value(node, visited_children):
-        return node.text
+        return env_value.replace("\"", "")
 
     # Function for COPY
 
@@ -350,9 +350,9 @@ class IniVisitor(NodeVisitor):
         _, _, chown, files, _ = visited_children
         try:
             chown_structure = chown[0][0]
-        except:
+        except TypeError:
             chown_structure = None
-        files[0].replace('\ ', '$SPACE')
+        files[0].replace("\\ ", '$SPACE')
         files_copied = files[0].split(' ')
         destination = files_copied[-1]
         sources = files_copied[:-1]
@@ -373,9 +373,9 @@ class IniVisitor(NodeVisitor):
         _, _, chown, files, _ = visited_children
         try:
             chown_structure = chown[0][0]
-        except:
+        except TypeError:
             chown_structure = None
-        files[0].replace('\ ', '$SPACE')
+        files[0].replace('\\ ', '$SPACE')
         files_copied = files[0].split(' ')
         destination = files_copied[-1]
         sources = files_copied[:-1]
@@ -391,15 +391,17 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_chown(node, visited_children):
+        del node
         _, user_group = visited_children
         try:
             group = user_group[1][0][1][0]
-        except:
+        except TypeError:
             group = None
         return {'user': user_group[0][0], 'group': group}
 
     @staticmethod
     def visit_linear_add(node, visited_children):
+        del node
         first_path, _, second_path, additional_paths = visited_children
         sources = list()
         try:
@@ -407,7 +409,7 @@ class IniVisitor(NodeVisitor):
             for path in additional_paths[:-1]:
                 sources.append(path[1].text)
             sources.append(second_path.text)
-        except:
+        except (AttributeError, IndexError, TypeError):
             destination = second_path.text
         finally:
             sources.append(first_path.text)
@@ -415,13 +417,12 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_quoted_list_min_l(node, visited_children):
+        del node
         _, _, item, items, _ = visited_children
         arguments = [item.replace("\"", "")]
         for i in items:
             item_part = i[3]
             arguments.append(item_part.replace("\"", ""))
-        sources = arguments[:-1]
-        destination = arguments[-1]
         return ' '.join(arguments)
 
     # Functions for MAINTAINER
@@ -433,7 +434,7 @@ class IniVisitor(NodeVisitor):
         try:
             for maintainer in additional_maintainers:
                 maintainers.append(maintainer[3])
-        except:
+        except IndexError:
             pass
         finally:
             maintainers.append(first_maintainer)
@@ -446,6 +447,7 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_maintainer_name(node, visited_children):
+        del visited_children
         return node.text.lstrip(' ')
 
     # Fucntions for EXPOSE
@@ -457,7 +459,7 @@ class IniVisitor(NodeVisitor):
             port = list()
             for item in ports[1]:
                 port.append(item)
-        except:
+        except IndexError:
             port = ports
         result = {
             'type': DockerfileDirectiveType.EXPOSE,
@@ -468,12 +470,13 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_ports(node, visited_children):
+        del node
         first_port, additional_ports = visited_children
         ports = list()
         try:
             for port in additional_ports:
                 ports.append(port[1])
-        except:
+        except IndexError:
             pass
         finally:
             ports.append(first_port)
@@ -481,15 +484,17 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_expose_port(node, visited_children):
+        del node
         ports_struct = visited_children
         try:
             protocol_name = ports_struct[0][1][0][1][0].text
-        except:
+        except (AttributeError, IndexError, TypeError):
             protocol_name = "tcp"
         return {'port': ports_struct[0][0], 'protocol': protocol_name}
 
     @staticmethod
     def visit_port_protocol(node, visited_children):
+        del node
         protocol = visited_children
         return protocol[0]
 
@@ -507,36 +512,42 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_key_value_line_end(node, visited_children):
+        del node
         keypairs, _ = visited_children
         return keypairs
 
     @staticmethod
     def visit_key_value_line_cont(node, visited_children):
+        del node
         keypairs, _ = visited_children
         return keypairs
 
     @staticmethod
     def visit_keyvalue(node, visited_children):
+        del node
         _, key, _, value, _ = visited_children
         return {key: value}
 
     @staticmethod
     def visit_key(node, visited_children):
+        del visited_children
         sanitized_key = node.text.replace('\n', '').replace('\\', ' ').replace('\"', '').lstrip(' ')
         return sanitized_key
 
     @staticmethod
     def visit_value(node, visited_children):
+        del visited_children
         return node.text.replace('\"', '')
 
     @staticmethod
     def visit_labels(node, visited_children):
+        del node
         continued_lines, ending_line = visited_children
         labels = list()
         try:
             for l in continued_lines:
                 labels.append(l[0])
-        except:
+        except (IndexError, TypeError):
             pass
         labels.append(ending_line[0])
         return labels
@@ -554,11 +565,8 @@ class IniVisitor(NodeVisitor):
         return result
 
     @staticmethod
-    def visit_run_shell_format(node, visited_children):
-        return node.text
-
-    @staticmethod
     def visit_run_exec_format(node, visited_children):
+        del node
         _, _, cmd, cmds, _ = visited_children
         commands = [cmd.text.replace("\"", "")]
         for item in cmds:
@@ -579,28 +587,32 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_user_name(node, visited_children):
+        del node
         user, group = visited_children
         try:
             unix_group = group[0][1]
             return {'user': user, 'group': unix_group}
-        except:
+        except TypeError:
             return {'user': user, 'group': None}
 
     @staticmethod
     def visit_user_id(node, visited_children):
+        del node
         user, group = visited_children
         try:
             unix_group = group[0][1]
             return {'user': user, 'group': unix_group}
-        except:
+        except TypeError:
             return {'user': user, 'group': None}
 
     @staticmethod
     def visit_unix_user(node, visited_children):
+        del visited_children
         return node.text
 
     @staticmethod
     def visit_unix_uid(node, visited_children):
+        del visited_children
         return node.text
 
     # Functions for FROM
@@ -610,15 +622,15 @@ class IniVisitor(NodeVisitor):
         _, _, platform, registry, image_name, tag_or_digest, local_name, _ = visited_children
         try:
             local_build_name = local_name[0]
-        except:
+        except TypeError:
             local_build_name = None
         try:
             registry_url = registry[0]
-        except:
+        except TypeError:
             registry_url = "Docker Hub"
         try:
             tag = tag_or_digest[0][0]
-        except:
+        except TypeError:
             tag = "latest"
         result = {"type": DockerfileDirectiveType.FROM,
                   "content":
@@ -634,52 +646,61 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_platform(node, visited_children):
+        del node
         _, platform, _ = visited_children
         return platform.text
 
     @staticmethod
     def visit_registry(node, visited_children):
+        del node
         host, port, _ = visited_children
         try:
             port_number = port[0][1]
             registry_url = f"{host}:{port_number}"
-        except:
+        except TypeError:
             registry_url = host
         return registry_url
 
     @staticmethod
     def visit_host(node, visited_children):
+        del node
         protocol, host = visited_children
         try:
             proto = protocol[0]
             return f"{proto}{host.text}"
-        except:
+        except TypeError:
             return host.text
 
     @staticmethod
     def visit_protocol(node, visited_children):
+        del visited_children
         return node.text
 
     @staticmethod
     def visit_port(node, visited_children):
+        del visited_children
         return node.text
 
     @staticmethod
     def visit_image_name(node, visited_children):
+        del visited_children
         return node
 
     @staticmethod
     def visit_image_tag(node, visited_children):
+        del node
         _, tag = visited_children
         return tag.text
 
     @staticmethod
     def visit_digest(node, visited_children):
+        del node
         _, algorithm, _, digest = visited_children
         return f"@{algorithm.text}:{digest.text}"
 
     @staticmethod
     def visit_local_name(node, visited_children):
+        del node
         _, _, _, name = visited_children
         return name.text
 
@@ -687,6 +708,7 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_comment(node, visited_children):
+        del node
         _, comment, _ = visited_children
         comment_sentence = ""
         for item in comment:
@@ -696,21 +718,13 @@ class IniVisitor(NodeVisitor):
                 }
 
     @staticmethod
-    def visit_quoted_word(node, visited_childre):
+    def visit_quoted_word(node, visited_children):
+        del visited_children
         return node.text.replace('"', '').replace("'", "")
 
     @staticmethod
-    def visit_sentence(node, visited_children):
-        _, word, words = visited_children
-        sentence = ""
-        if word is not None:
-            sentence += word.text
-        if words[0][1] is not None:
-            sentence += f" {words[0][1].text}"
-        return sentence
-
-    @staticmethod
     def visit_comment_start(node, visited_children):
+        del node
         _, hashtag, _ = visited_children
         return hashtag.text
 
@@ -718,12 +732,13 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_multiline_statement(node, visited_children):
+        del node
         optional_lines, last_line = visited_children
         statement = list()
         try:
             for line in optional_lines:
                 statement.append(line.text.replace('\n', '').lstrip(' ').replace('\t', '').replace('\\', ''))
-        except:
+        except AttributeError:
             pass
         finally:
             statement.append(last_line.text.replace('\n', '').lstrip(' ').replace('\t', ''))
@@ -732,6 +747,7 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_quoted_list(node, visited_children):
+        del node
         _, _, part, parts, _ = visited_children
         items = [part.replace("\"", "")]
         for item in parts:
@@ -741,6 +757,7 @@ class IniVisitor(NodeVisitor):
 
     @staticmethod
     def visit_ws(node, visited_children):
+        del visited_children
         return node.text
 
     def generic_visit(self, node, visited_children):
