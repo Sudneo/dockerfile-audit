@@ -1,9 +1,13 @@
 from .Directives import DockerfileDirectiveType
+from .Parser import grammar
+from .Parser import DockerfileVisitor
 
 
 class Dockerfile:
 
     def __init__(self):
+        # Add file as argument and preprocessing
+        # Preprocessing should remove comments and also flatten lines into single line
         self.directives = list()
 
     def add_directive(self, directive):
@@ -27,6 +31,9 @@ class Dockerfile:
             'shell': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.SHELL)],
             'stopsignal': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.STOPSIGNAL)],
             'arg': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.ARG)],
-            'raw': [d.get() for d in self.directives]
         }
+        return result
+
+    def get_raw(self):
+        result = [d.get() for d in self.directives]
         return result

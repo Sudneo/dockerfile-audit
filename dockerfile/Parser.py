@@ -110,7 +110,7 @@ grammar = Grammar(
 )
 
 
-class IniVisitor(NodeVisitor):
+class DockerfileVisitor(NodeVisitor):
 
     def __init__(self):
         self.dockerfile = Dockerfile()

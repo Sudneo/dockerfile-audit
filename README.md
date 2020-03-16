@@ -6,7 +6,7 @@ Opinionated choices:
 * The easiest way to get a good result is to strip comments before parsing:
 
 ```python
-    with open('Dockerfile-test') as f:
+    with open('Dockerfile') as f:
         data = f.read()
         data_no_comments = list()
         lines = data.split('\n')
