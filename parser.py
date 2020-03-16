@@ -1,4 +1,3 @@
-import json
 import re
 from parsimonious.grammar import Grammar
 from parsimonious.nodes import NodeVisitor
@@ -12,23 +11,23 @@ grammar = Grammar(
                              maintainer_command / add_command / copy_command / env_command / cmd_command / 
                              entrypoint_command / workdir_command / volume_command / shell_command / 
                              stopsignal_command / arg_command / ws)*
-    from_command          = from spaces (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
-    user_command          = user spaces (user_name / user_id) ws
+    from_command          = from space+ (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
+    user_command          = user space+ (user_name / user_id) ws
     run_command           = run (quoted_list / multiline_statement) ws
-    label_command         = label spaces labels ws
-    expose_command        = expose spaces ports ws
-    maintainer_command    = maintainer maintainer_name (spaces* "," spaces* maintainer_name)* ws
-    add_command           = add space+ (chown spaces)? ( quoted_list_min_l / multiline_statement ) ws
-    copy_command          = copy space+ (chown spaces)? ( quoted_list_min_l / multiline_statement ) ws
-    env_command           = env spaces ( spaced_key_value / env_key_value ) ws
-    cmd_command           = cmd spaces ( quoted_list / multiline_statement ) ws
-    entrypoint_command    = entrypoint spaces ( quoted_list / multiline_statement ) ws
-    workdir_command       = workdir spaces cmd_line ws
-    volume_command        = volume spaces ( quoted_list / volume_list ) ws
+    label_command         = label space+ labels ws
+    expose_command        = expose space+ ports ws
+    maintainer_command    = maintainer maintainer_name (space* "," space* maintainer_name)* ws
+    add_command           = add space+ (chown space)? ( quoted_list_min_l / multiline_statement ) ws
+    copy_command          = copy space+ (chown space)? ( quoted_list_min_l / multiline_statement ) ws
+    env_command           = env space+ ( spaced_key_value / env_key_value ) ws
+    cmd_command           = cmd space+ ( quoted_list / multiline_statement ) ws
+    entrypoint_command    = entrypoint space+ ( quoted_list / multiline_statement ) ws
+    workdir_command       = workdir space+ cmd_line ws
+    volume_command        = volume space+ ( quoted_list / volume_list ) ws
     shell_command         = shell quoted_list ws
-    stopsignal_command    = stopsignal spaces word_symbols ws
-    arg_command           = arg spaces argument ws
-    comment               = comment_start sentence* ws
+    stopsignal_command    = stopsignal space+ word_symbols ws
+    arg_command           = arg space+ argument ws
+    comment               = comment_start any ws
     
     arg                   = space* "ARG"
     argument              = key ( "=" value)? 
@@ -38,7 +37,7 @@ grammar = Grammar(
     shell                 = space* "SHELL"
     
     volume                = space* "VOLUME"
-    volume_list           = volume_value (spaces volume_value )*
+    volume_list           = volume_value (space+ volume_value )*
     volume_value          = spaced_env_value / word_symbols
     
     workdir               = space* "WORKDIR"
@@ -49,31 +48,31 @@ grammar = Grammar(
     cmd_line              = ~".+"
     
     env                   = space* ("ENV" / "env")
-    spaced_key_value      = key spaces unescaped_env_value
+    spaced_key_value      = key space+ unescaped_env_value
     env_key_value         = env_assignment+ ( line_continuation env_assignment+)*
     env_assignment        = space* key "=" env_value space*
     env_value             = ( spaced_env_value / quoted_word / word_symbols )
     unescaped_env_value   = ~r"[\S ]+"
     spaced_env_value      = ~r"[\S]+((\\\\ [\S]+)*\\\\ )[\S]*"
         
-    copy                  = spaces* "COPY"
+    copy                  = space* "COPY"
 
-    add                   = spaces* "ADD"
+    add                   = space* "ADD"
     
     chown                 = "--chown=" unix_user_group
     linear_add            = word_symbols space+ word_symbols (space+ word_symbols)*
     
-    maintainer            = spaces* "MAINTAINER"
+    maintainer            = space* "MAINTAINER"
     maintainer_name       = ~r'[^\\n\\t\\r=,]+'
     
-    expose                = spaces* "EXPOSE"
+    expose                = space* "EXPOSE"
     ports                 = expose_port ( space+ line_continuation? space* expose_port )*
     expose_port           = ( ( port ( "/" port_protocol )? ) / ( "$" word_symbols ) )
     port_protocol         = ( tcp / udp )
     tcp                   = ( "TCP" / "tcp" )
     udp                   = ( "UDP" / "udp" )
 
-    label                 = spaces* "LABEL"
+    label                 = space* "LABEL"
     labels                = (key_value_line_cont)* key_value_line_end 
     key_value_line_end    = keyvalue+ "\\n"
     key_value_line_cont   = keyvalue+ line_continuation
@@ -82,49 +81,47 @@ grammar = Grammar(
     key                   = (quoted_word / word_not_equal )
     value                 = (quoted_word / word_symbols )
     
-    from                  = spaces* "FROM"
-    platform              = "--platform=" word_symbols spaces
+    from                  = space* "FROM"
+    platform              = "--platform=" word_symbols space+
     registry              = host (":" port)? "/"
     host                  = (protocol)? ~"[a-zA-Z0-9.-]+"
     protocol              = ("https://" / "http://")
     port                  = ~"[0-9]{1,5}"
-    image_name            = ~"[a-zA-Z0-9][a-zA-Z0-9_.-]+"
+    image_name            = ~"[a-zA-Z0-9][a-zA-Z0-9_.\\-/]+"
     image_tag             = ":" ~"[\w$][\w.-]{0,127}"
     digest                = "@" algorithm ":" hash
     algorithm             = ~"[a-zA-Z0-9]+"
     hash                  = ~"[a-z0-9]{32,}"
-    local_name            = spaces "AS" spaces word_symbols
+    local_name            = space+ "AS" space+ word_symbols
     
-    user                  = spaces* "USER"
+    user                  = space* "USER"
     unix_user_group       = (unix_user / unix_uid) (":" (unix_user / unix_uid) )?
     user_name             = unix_user (":" unix_user)?
     unix_user             = ~"[a-z_][a-z0-9_-]*[$]?"
     user_id               = unix_uid (":" unix_uid)?
     unix_uid              = ~"[0-9]{1,5}"
     
-    run                   = spaces* "RUN"
-    run_shell_format      = multiline_expression
+    run                   = space* "RUN"
+    run_shell_format      = multiline_statement
     multiline_statement   = (line_backslash)* line_end
     line_backslash        = ~r".*[\\\\][\\n]+"
     line_end              = ~r".*[^\\\\]"
     
     space_escaped_string  = ~r"[\S]+((\\\\ [\S]+)*\\\\ )[\S]*"
-    quoted_list           = space* lpar quoted_word (spaces? "," space? quoted_word)* rpar
-    quoted_list_min_l     = space* lpar quoted_word (spaces? "," space? quoted_word)+ rpar
-    multiline_expression  = ~r"[^\\\\\\n]+(\\n|\\\\[\s]+([^\\n\\\\]+\\\\[\s]+)*[^\\n\\\\]+\\n)"
-    sentence              = spaces* word_symbols (spaces word_symbols)*
+    quoted_list           = space* lpar quoted_word (space? "," space? quoted_word)* rpar
+    quoted_list_min_l     = space* lpar quoted_word (space? "," space? quoted_word)+ rpar
     quoted_word           = (single_quoted_word / double_quoted_word)
     single_quoted_word    = ~r"'[^']+'"
     double_quoted_word    = ~r'"[^\\\\\\"]+"'
     word_not_equal        = ~r'[^\\\"\\n\\t\\r= ]+'
     comment_start         = space* hashtag space*
     hashtag               = "#"
-    spaces                = space+
     space                 = " "
     lpar                  = "["
     rpar                  = "]"
     word_symbols          = ~"[\S]+"
     ws                    = ~"[\s]*"
+    any                   = ~"[.]*"
     """
 )
 
@@ -749,22 +746,3 @@ class IniVisitor(NodeVisitor):
     def generic_visit(self, node, visited_children):
         """ The generic visit method. """
         return visited_children or node
-
-
-# with open('Dockerfile') as f:
-#     data = f.read()
-#     data_no_comments = list()
-#     lines = data.split('\n')
-#     for line in lines:
-#         if len(line.lstrip(' ').lstrip('\t')) > 0:
-#             if line.lstrip(' ').lstrip('\t')[0] != "#":
-#                 data_no_comments.append(line)
-#     dockerfile = '\n'.join(data_no_comments)
-#     tree = grammar.parse(dockerfile)
-#     iv = IniVisitor()
-#     output = iv.visit(tree)
-#     directives = output.get_directives()
-#     print(json.dumps(output.get_directives(), indent=2))
-#     json.dump(output.get_directives(), indent=4, sort_keys=True, fp=open('result.json', 'w'))
-
-

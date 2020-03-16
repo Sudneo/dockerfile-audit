@@ -48,9 +48,9 @@ ToDo:
 - [ ] Implement comments parsing between RUN multiline commands.
 - [X] Review RUN command parsing
 - [X] FROM command breaks when registry has more than a "/"
-- [ ] LABEL sometimes breaks
+- [X] LABEL sometimes breaks
 - [ ] COPY --from options
-- [ ] FIX EXPOSE command
+- [X] FIX EXPOSE command
 
 Eventual Features:
 
