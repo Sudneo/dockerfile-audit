@@ -1,7 +1,6 @@
 import re
 from parsimonious.grammar import Grammar
 from parsimonious.nodes import NodeVisitor
-from dockerfile.Dockerfile import Dockerfile
 from dockerfile.Directives import *
 
 
@@ -112,8 +111,8 @@ grammar = Grammar(
 
 class DockerfileVisitor(NodeVisitor):
 
-    def __init__(self):
-        self.dockerfile = Dockerfile()
+    def __init__(self, dockerfile_object):
+        self.dockerfile = dockerfile_object
         super().__init__()
 
     def visit_dockerfile(self, node, visited_children):
@@ -494,6 +493,16 @@ class DockerfileVisitor(NodeVisitor):
             'raw_command': node.text
         }
         return result
+
+    @staticmethod
+    def visit_unescaped_env_value(node, visited_children):
+        del visited_children
+        return node.text
+
+    @staticmethod
+    def visit_spaced_env_value(node, visited_children):
+        del visited_children
+        return node.text
 
     @staticmethod
     def visit_key_value_line_end(node, visited_children):

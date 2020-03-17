@@ -2,23 +2,12 @@
 
 Opinionated choices:
 
-* At the moment the comments work, but not if they are in between multiline commands (e.g, LABEL or RUN).
-* The easiest way to get a good result is to strip comments before parsing:
-
-```python
-    with open('Dockerfile') as f:
-        data = f.read()
-        data_no_comments = list()
-        lines = data.split('\n')
-        for line in lines:
-            if len(line.lstrip(' ')) > 0:
-                if line.lstrip(' ')[0] != "#":
-                    data_no_comments.append(line)
-        dockerfile = '\n'.join(data_no_comments)
-        tree = grammar.parse(dockerfile)
-        iv = IniVisitor()
-        output = iv.visit(tree)
-```
+In order to greatly simplify the parsing, each Dockerfile is pre-processed before being parsed.
+Preprocessing does the following actions:
+* Removes comments
+* Replaces line continuations (\ \n) with simple space
+* Replaces multiple spaces with a single space
+* Removes new lines at the beginning of the file
 
 Implementation Roadmap
 
@@ -45,7 +34,7 @@ Implementation Roadmap
 ToDo:
 
 - [ ] Optimize Grammar, remove duplicate terminals and reduce the number of rules.
-- [ ] Implement comments parsing between RUN multiline commands.
+- [X] Implement comments parsing between RUN multiline commands.
 - [X] Review RUN command parsing
 - [X] FROM command breaks when registry has more than a "/"
 - [X] LABEL sometimes breaks

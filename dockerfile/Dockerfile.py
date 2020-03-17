@@ -1,3 +1,4 @@
+import re
 from .Directives import DockerfileDirectiveType
 from .Parser import grammar
 from .Parser import DockerfileVisitor
@@ -5,10 +6,14 @@ from .Parser import DockerfileVisitor
 
 class Dockerfile:
 
-    def __init__(self):
-        # Add file as argument and preprocessing
-        # Preprocessing should remove comments and also flatten lines into single line
+    def __init__(self, filename):
         self.directives = list()
+        with open(filename) as fp:
+            self.dockerfile_content = self.normalize_content(fp.read())
+        tree = grammar.parse(self.dockerfile_content)
+        visitor = DockerfileVisitor(self)
+        # This populates all the directives
+        visitor.visit(tree)
 
     def add_directive(self, directive):
         self.directives.append(directive)
@@ -37,3 +42,17 @@ class Dockerfile:
     def get_raw(self):
         result = [d.get() for d in self.directives]
         return result
+
+    @staticmethod
+    def normalize_content(dockerfile_content):
+        # Remove comments
+        comments = re.compile('#.*\n')
+        normalized_content = comments.sub('', dockerfile_content)
+        # Flatten lines
+        line_continuation = re.compile('[\\\\][\n]+')
+        normalized_content = line_continuation.sub(' ', normalized_content)
+        spaces = re.compile('[ ]{2,}')
+        normalized_content = spaces.sub(' ', normalized_content)
+        empty_lines = re.compile('[\n]{2,}')
+        normalized_content = empty_lines.sub('\n', normalized_content)
+        return normalized_content.lstrip('\n')
