@@ -1,40 +1,35 @@
 policy:
-  from:
-    - enforce_authorized_registries:
-        enabled: False
-        registries:
-          - Docker Hub
-          - https://test.example.com:5000
-    - forbid_floating_tags:
-        enabled: True
-        forbidden_tags:
-          - latest
-          - stable
-          - prod
-          - stage
-    - forbid_insecure_registries:
-        enabled: True
-  user:
-    - forbid_root:
-        enabled: True
-  expose:
-    - forbid_privileged_ports:
-        enabled: True
-  run:
-    - forbid_packages:
-        enabled: True
-        forbidden_packages:
-          - sudo
-          - vim
-          - netcat
-          - nc
-          - curl
-          - wget
-  files:
-    - forbid_secrets:
-        enabled: True
-        secrets_name:
-          - id_rsa
-          - private_key
-    - forbid_lax_chmod:
-        enabled: False
+    enforce_authorized_registries:
+      enabled: True
+      registries:
+        - Docker Hub
+        - https://test.example.com:5000
+    forbid_floating_tags:
+      enabled: True
+      forbidden_tags:
+        - latest
+        - stable
+        - prod
+        - stage
+    forbid_insecure_registries:
+      enabled: True
+    forbid_root:
+      enabled: True
+    forbid_privileged_ports:
+      enabled: True
+    forbid_packages:
+      enabled: True
+      forbidden_packages:
+        - sudo
+        - vim
+        - netcat
+        - nc
+        - curl
+        - wget
+    forbid_secrets:
+      enabled: True
+      secrets_name:
+        - id_rsa
+        - private_key
+    forbid_lax_chmod:
+      enabled: False

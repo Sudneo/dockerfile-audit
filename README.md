@@ -31,9 +31,19 @@ Implementation Roadmap
 - [X] SHELL
 - [X] COMMENTS
 
+Policy Roadmap
+
+- [X] Enforce registries
+- [ ] Forbids tags
+- [ ] Forbid root User
+- [ ] Forbid Packages
+- [ ] Forbid secrets
+- [ ] Forbid lax chmod
+
+
 ToDo:
 
-- [ ] Optimize Grammar, remove duplicate terminals and reduce the number of rules.
+- [X] Optimize Grammar, remove duplicate terminals and reduce the number of rules.
 - [X] Implement comments parsing between RUN multiline commands.
 - [X] Review RUN command parsing
 - [X] FROM command breaks when registry has more than a "/"
