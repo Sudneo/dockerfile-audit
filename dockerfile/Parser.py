@@ -6,28 +6,27 @@ from dockerfile.Directives import *
 
 grammar = Grammar(
     """
-    dockerfile            = (comment / from_command / user_command / run_command / label_command / expose_command /
+    dockerfile            = (from_command / user_command / run_command / label_command / expose_command /
                              maintainer_command / add_command / copy_command / env_command / cmd_command / 
                              entrypoint_command / workdir_command / volume_command / shell_command / 
                              stopsignal_command / arg_command / healthcheck_command / ws)*
     healthcheck_command   = healthcheck space+ ( healthcheck_options cmd_command ) 
     from_command          = from space+ (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
     user_command          = user space+ (user_name / user_id) ws
-    run_command           = run (quoted_list / multiline_statement) ws
+    run_command           = run (quoted_list / line_statement) ws
     label_command         = label space+ labels ws
     expose_command        = expose space+ ports ws
     maintainer_command    = maintainer maintainer_name (space* "," space* maintainer_name)* ws
-    add_command           = add space+ (chown space)? ( quoted_list_min_l / multiline_statement ) ws
-    copy_command          = copy space+ (chown space)? ( quoted_list_min_l / multiline_statement ) ws
+    add_command           = add space+ (chown space)? ( quoted_list_min_l / line_statement ) ws
+    copy_command          = copy space+ (chown space)? ( quoted_list_min_l / line_statement ) ws
     env_command           = env space+ ( spaced_key_value / env_key_value ) ws
-    cmd_command           = cmd space+ ( quoted_list / multiline_statement ) ws
-    entrypoint_command    = entrypoint space+ ( quoted_list / multiline_statement ) ws
+    cmd_command           = cmd space+ ( quoted_list / line_statement ) ws
+    entrypoint_command    = entrypoint space+ ( quoted_list / line_statement ) ws
     workdir_command       = workdir space+ cmd_line ws
     volume_command        = volume space+ ( quoted_list / volume_list ) ws
     shell_command         = shell quoted_list ws
     stopsignal_command    = stopsignal space+ word_symbols ws
     arg_command           = arg space+ argument ws
-    comment               = comment_start any ws
     healthcheck           = space* "ARG"
     healthcheck_options   = "placeholder"
     arg                   = space* "ARG"
@@ -43,7 +42,7 @@ grammar = Grammar(
     cmd_line              = ~".+"
     env                   = space* ("ENV" / "env")
     spaced_key_value      = key space+ unescaped_env_value
-    env_key_value         = env_assignment+ ( line_continuation env_assignment+)*
+    env_key_value         = env_assignment+
     env_assignment        = space* key "=" env_value space*
     env_value             = ( spaced_env_value / quoted_word / word_symbols )
     unescaped_env_value   = ~r"[\\S ]+"
@@ -55,16 +54,14 @@ grammar = Grammar(
     maintainer            = space* "MAINTAINER"
     maintainer_name       = ~r'[^\\n\\t\\r=,]+'
     expose                = space* "EXPOSE"
-    ports                 = expose_port ( space+ line_continuation? space* expose_port )*
+    ports                 = expose_port ( space+ expose_port )*
     expose_port           = ( ( port ( "/" port_protocol )? ) / ( "$" word_symbols ) )
     port_protocol         = ( tcp / udp )
     tcp                   = ( "TCP" / "tcp" )
     udp                   = ( "UDP" / "udp" )
     label                 = space* "LABEL"
-    labels                = (key_value_line_cont)* key_value_line_end 
-    key_value_line_end    = keyvalue+ "\\n"
-    key_value_line_cont   = keyvalue+ line_continuation
-    line_continuation     = ~r"(\\\\[\\n]+)"
+    labels                = key_value_line
+    key_value_line        = keyvalue+ "\\n"
     keyvalue              = space* key ( (space* "=" space*) / space+ )  value space*
     key                   = (quoted_word / word_not_equal )
     value                 = (quoted_word / word_symbols )
@@ -87,9 +84,7 @@ grammar = Grammar(
     user_id               = unix_uid (":" unix_uid)?
     unix_uid              = ~"[0-9]{1,5}"
     run                   = space* "RUN"
-    multiline_statement   = (line_backslash)* line_end
-    line_backslash        = ~r".*[\\\\][\\n]+"
-    line_end              = ~r".*[^\\\\]" 
+    line_statement        = ~r".*[^\\\\]" 
     space_escaped_string  = ~r"[\\S]+((\\\\ [\\S]+)*\\\\ )[\\S]*"
     quoted_list           = space* lpar quoted_word (space? "," space? quoted_word)* rpar
     quoted_list_min_l     = space* lpar quoted_word (space? "," space? quoted_word)+ rpar
@@ -97,8 +92,6 @@ grammar = Grammar(
     single_quoted_word    = ~r"'[^']+'"
     double_quoted_word    = ~r'"[^\\\\\\"]+"'
     word_not_equal        = ~r'[^\\\"\\n\\t\\r= ]+'
-    comment_start         = space* hashtag space*
-    hashtag               = "#"
     space                 = " "
     lpar                  = "["
     rpar                  = "]"
@@ -151,8 +144,6 @@ class DockerfileVisitor(NodeVisitor):
                 self.dockerfile.add_directive(ArgDirective(line_content))
             elif line_type is DockerfileDirectiveType.CMD:
                 self.dockerfile.add_directive(CmdDirective(line_content))
-            elif line_type is DockerfileDirectiveType.COMMENT:
-                self.dockerfile.add_directive(Comment(line_content))
             else:
                 logger.error(f"Directive type not recognized or not implemented yet: {line_type}")
                 continue
@@ -301,14 +292,7 @@ class DockerfileVisitor(NodeVisitor):
     @staticmethod
     def visit_env_key_value(node, visited_children):
         del node
-        first_variables, additional_variables = visited_children
-        variables = list()
-        variables += first_variables
-        try:
-            for line in additional_variables:
-                variables += line[1]
-        except IndexError:
-            pass
+        variables = visited_children
         return variables
 
     @staticmethod
@@ -338,7 +322,7 @@ class DockerfileVisitor(NodeVisitor):
             chown_structure = None
         files[0].replace("\\ ", '$SPACE')
         files_copied = files[0].split(' ')
-        destination = files_copied[-1]
+        destination = files_copied[-1].rstrip('\n')
         sources = files_copied[:-1]
         result = {
             'type': DockerfileDirectiveType.COPY,
@@ -505,7 +489,7 @@ class DockerfileVisitor(NodeVisitor):
         return node.text
 
     @staticmethod
-    def visit_key_value_line_end(node, visited_children):
+    def visit_key_value_line(node, visited_children):
         del node
         keypairs, _ = visited_children
         return keypairs
@@ -536,14 +520,8 @@ class DockerfileVisitor(NodeVisitor):
     @staticmethod
     def visit_labels(node, visited_children):
         del node
-        continued_lines, ending_line = visited_children
-        labels = list()
-        try:
-            for l in continued_lines:
-                labels.append(l[0])
-        except (IndexError, TypeError):
-            pass
-        labels.append(ending_line[0])
+        line = visited_children
+        labels = line[0]
         return labels
 
     # Functions for RUN
@@ -698,45 +676,16 @@ class DockerfileVisitor(NodeVisitor):
         _, _, _, name = visited_children
         return name.text
 
-    # Functions for COMMENT
-
-    @staticmethod
-    def visit_comment(node, visited_children):
-        del node
-        _, comment, _ = visited_children
-        comment_sentence = ""
-        for item in comment:
-            comment_sentence += f"{item}"
-        return {"type": DockerfileDirectiveType.COMMENT,
-                "content": comment_sentence
-                }
-
     @staticmethod
     def visit_quoted_word(node, visited_children):
         del visited_children
         return node.text.replace('"', '').replace("'", "")
 
     @staticmethod
-    def visit_comment_start(node, visited_children):
-        del node
-        _, hashtag, _ = visited_children
-        return hashtag.text
-
-    # END of functions for COMMENT
-
-    @staticmethod
-    def visit_multiline_statement(node, visited_children):
-        del node
-        optional_lines, last_line = visited_children
-        statement = list()
-        try:
-            for line in optional_lines:
-                statement.append(line.text.replace('\n', '').lstrip(' ').replace('\t', '').replace('\\', ''))
-        except AttributeError:
-            pass
-        finally:
-            statement.append(last_line.text.replace('\n', '').lstrip(' ').replace('\t', ''))
-        command = ' '.join(statement)
+    def visit_line_statement(node, visited_children):
+        del visited_children
+        line = node.text
+        command = line.replace('\n', '').lstrip(' ').replace('\t', '')
         return command
 
     @staticmethod
