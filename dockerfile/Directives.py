@@ -23,7 +23,6 @@ class DockerfileDirectiveType(Enum):
     STOPSIGNAL = 16
     HEALTHCHECK = 17
     SHELL = 18
-    COMMENT = 19
 
     def __str__(self):
         return self.name
@@ -273,9 +272,3 @@ class ArgDirective(DockerfileDirective):
             'raw_content': self.content,
             'argument': self.argument
         }
-
-
-class Comment(DockerfileDirective):
-
-    def __init__(self, raw_content):
-        super().__init__(DockerfileDirectiveType.COMMENT, raw_content['content'])
