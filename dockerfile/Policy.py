@@ -16,9 +16,9 @@ class DockerfilePolicy(object):
             if test_rule_result is not None:
                 test_results.append(test_rule_result)
         if len(test_results) > 0:
-            return {'failed-tests': test_results, 'audit-outcome': 'fail'}
+            return {'failed-tests': test_results, 'audit-outcome': 'fail', 'filename': dockerfile_object.get_filename()}
         else:
-            return {'audit-outcome': 'pass'}
+            return {'audit-outcome': 'pass', 'filename': dockerfile_object.get_filename()}
 
     def init_rules(self):
         try:
@@ -62,3 +62,13 @@ class DockerfilePolicy(object):
                 self.policy_rules.append(ForbidPrivilegedPorts())
         except KeyError:
             logger.debug("No forbid_privileged_ports found in policy, skipping.")
+
+    def get_policy_rules_enabled(self):
+        enabled_rules = list()
+        for rule in self.policy_rules:
+            rule_details = rule.details()
+            if rule_details is None:
+                rule_details = ""
+            enabled_rules.append({'type': rule.get_type().replace('_', ' '), 'description': rule.describe(),
+                                  'details': rule_details})
+        return enabled_rules

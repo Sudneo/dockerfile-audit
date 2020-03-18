@@ -22,7 +22,11 @@ class PolicyFailedTestResult:
         self.results = []
 
     def add_result(self, details, mitigations, rule_type, statement=None):
-        self.results.append({'details': details, 'mitigations': mitigations, 'statement': statement, 'type': rule_type})
+        try:
+            self.results.append({'details': details, 'mitigations': mitigations, 'statement': statement,
+                                 'type': rule_type.name})
+        except AttributeError:
+            print(rule_type)
 
     def get_result(self):
         if len(self.results) > 0:
@@ -36,9 +40,19 @@ class PolicyRule:
     def __init__(self):
         self.type = PolicyRuleType.GENERIC_POLICY
         self.test_result = PolicyFailedTestResult()
+        self.description = "Generic Policy Rule"
         pass
 
     def test(self, dockerfile_statements):
+        pass
+
+    def describe(self):
+        return self.description
+
+    def get_type(self):
+        return self.type.name
+
+    def details(self):
         pass
 
 
@@ -46,6 +60,8 @@ class EnforceRegistryPolicy(PolicyRule):
 
     def __init__(self, allowed_registries):
         super().__init__()
+        self.description = "Allow images to be based (using the FROM command) only on images " \
+                           "belonging to approved repositories."
         self.type = PolicyRuleType.ENFORCE_REGISTRY
         self.allowed_registries = allowed_registries
 
@@ -58,15 +74,20 @@ class EnforceRegistryPolicy(PolicyRule):
                 self.test_result.add_result(f"Registry {registry} is not an allowed registry to "
                                             f"pull images from",
                                             f"The FROM statement should be changed using images from one of the allowed"
-                                            f" registries: {', '.join(self.allowed_registries)}", str(self.type),
+                                            f" registries: {', '.join(self.allowed_registries)}", self.type,
                                             statement['raw_content'])
         return self.test_result.get_result()
+
+    def details(self):
+        return f"The following registries are allowed: {', '.join(self.allowed_registries)}."
 
 
 class ForbidTags(PolicyRule):
 
     def __init__(self, forbidden_tags):
         super().__init__()
+        self.description = "Restrict the use of certain tags for the images the" \
+                           " build is sourced from (using FROM command)"
         self.type = PolicyRuleType.FORBID_TAGS
         self.forbidden_tags = forbidden_tags
 
@@ -79,13 +100,17 @@ class ForbidTags(PolicyRule):
                 self.test_result.add_result(f"Tag {tag} is not allowed",
                                             f"The FROM statements should be changed using an image with a fixed tag or "
                                             f"without any of the following tags: {', '.join(self.forbidden_tags)}",
-                                            str(self.type), statement['raw_content'])
+                                            self.type, statement['raw_content'])
+
+    def details(self):
+        return f"The following tags are forbidden: {', '.join(self.forbidden_tags)}."
 
 
 class ForbidInsecureRegistries(PolicyRule):
 
     def __init__(self):
         super().__init__()
+        self.description = "Forbid the use of HTTP protocol for the registries from which source images are stored."
         self.type = PolicyRuleType.FORBID_INSECURE_REGISTRIES
 
     def test(self, dockerfile_statements):
@@ -96,7 +121,7 @@ class ForbidInsecureRegistries(PolicyRule):
             if registry.startswith('http://'):
                 self.test_result.add_result(f"Registry {registry} uses HTTP and therefore it is considered insecure",
                                             f"The FROM statement should be changed using images from a registry which"
-                                            f"uses HTTPs.", str(self.type), statement['raw_content'])
+                                            f"uses HTTPs.", self.type, statement['raw_content'])
         return self.test_result.get_result()
 
 
@@ -104,6 +129,7 @@ class ForbidRoot(PolicyRule):
 
     def __init__(self):
         super().__init__()
+        self.description = "Forbid the container to run as a privileged (root) user."
         self.type = PolicyRuleType.FORBID_ROOT
 
     def test(self, dockerfile_statements):
@@ -114,13 +140,13 @@ class ForbidRoot(PolicyRule):
                                         "container will run as root.",
                                         "Create a user and add a USER statement before the entrypoint of the image"
                                         "to run the application as a non-privileged user.",
-                                        str(self.type))
+                                        self.type, statement=None)
         else:
             last_user = user_statements[-1]['user']
             if last_user == "0" or last_user == "root":
                 self.test_result.add_result("The last USER statement found elevates privileged to root.",
                                             "Add one more USER statement before the entrypoint of the image"
-                                            "to run the application as a non-privileged user.",
+                                            "to run the application as a non-privileged user.", self.type,
                                             user_statements[-1]['raw_content'])
         return self.test_result.get_result()
 
@@ -129,6 +155,7 @@ class ForbidPrivilegedPorts(PolicyRule):
 
     def __init__(self):
         super().__init__()
+        self.description = "Forbid the image to expose privileged ports that require administrative permissions."
         self.type = PolicyRuleType.FORBID_PRIVILEGED_PORTS
 
     def test(self, dockerfile_statements):
@@ -143,7 +170,7 @@ class ForbidPrivilegedPorts(PolicyRule):
                                                     "Change the configuration for the application to bind on a port "
                                                     "greater than 1024, and change the Dockerfile to reflect this "
                                                     "modification.",
-                                                    str(self.type), statement['raw_content'])
+                                                    self.type, statement['raw_content'])
                 except ValueError:
                     port_number = self.__get_port_from_env(port['port'], dockerfile_statements)
                     if port_number is not None:
@@ -153,7 +180,7 @@ class ForbidPrivilegedPorts(PolicyRule):
                                 f"require the application which uses it to run as root.",
                                 "Change the configuration for the application to bind on a port greater"
                                 "than 1024, and change the Dockerfile to reflect this modification.",
-                                str(self.type), statement['raw_content'])
+                                self.type, statement['raw_content'])
 
         return self.test_result.get_result()
 

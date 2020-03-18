@@ -1,5 +1,6 @@
 import re
 import logging
+import os
 from .Directives import DockerfileDirectiveType
 from .Parser import grammar
 from .Parser import DockerfileVisitor
@@ -48,7 +49,7 @@ class Dockerfile:
         visitor.visit(tree)
 
     def get_filename(self):
-        return self.filename
+        return os.path.basename(self.filename)
 
     def add_directive(self, directive):
         self.directives.append(directive)
