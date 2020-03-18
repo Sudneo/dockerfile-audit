@@ -1,16 +1,41 @@
 import re
+import logging
 from .Directives import DockerfileDirectiveType
 from .Parser import grammar
 from .Parser import DockerfileVisitor
+
+logger = logging.getLogger(__name__)
+
+
+class Error(Exception):
+    pass
+
+
+class NotDockerfileError(Error):
+    pass
+
+
+class EmptyFileError(Error):
+    pass
 
 
 class Dockerfile:
 
     def __init__(self, filename):
         self.directives = list()
-        with open(filename) as fp:
-            self.dockerfile_content = self.normalize_content(fp.read())
-        tree = grammar.parse(self.dockerfile_content)
+        try:
+            with open(filename) as fp:
+                self.dockerfile_content = self.normalize_content(fp.read())
+                if len(self.dockerfile_content) == 0:
+                    raise EmptyFileError
+        except IsADirectoryError:
+            logger.error(f"{filename} is a directory, expected a file.")
+            raise NotDockerfileError
+        try:
+            tree = grammar.parse(self.dockerfile_content)
+        except:
+            logger.error(f"Failed to parse file: {filename}")
+            raise NotDockerfileError
         visitor = DockerfileVisitor(self)
         # This populates all the directives
         visitor.visit(tree)

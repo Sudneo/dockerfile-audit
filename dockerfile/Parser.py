@@ -55,7 +55,9 @@ grammar = Grammar(
     maintainer_name       = ~r'[^\\n\\t\\r=,]+'
     expose                = space* "EXPOSE"
     ports                 = expose_port ( space+ expose_port )*
-    expose_port           = ( ( port ( "/" port_protocol )? ) / ( "$" word_symbols ) )
+    expose_port           = ( numeric_port / env_port )
+    numeric_port          = port ( "/" port_protocol )?
+    env_port              = "$" word_symbols
     port_protocol         = ( tcp / udp )
     tcp                   = ( "TCP" / "tcp" )
     udp                   = ( "UDP" / "udp" )
@@ -425,7 +427,7 @@ class DockerfileVisitor(NodeVisitor):
         _, _, ports, _ = visited_children
         try:
             port = list()
-            for item in ports[1]:
+            for item in ports:
                 port.append(item)
         except IndexError:
             port = ports
@@ -435,6 +437,22 @@ class DockerfileVisitor(NodeVisitor):
             'raw_command': node.text.replace('\n', '').lstrip(' ')
         }
         return result
+
+    @staticmethod
+    def visit_numeric_port(node, visited_children):
+        del node
+        port, protocol = visited_children
+        try:
+            port_protocol = protocol[0][1][0].text
+        except (IndexError, AttributeError, TypeError):
+            port_protocol = 'tcp'
+        return {'port': port, 'protocol': port_protocol}
+
+    @staticmethod
+    def visit_env_port(node, visited_children):
+        del node
+        _, env = visited_children
+        return {'port': env.text, 'protocol': 'tcp'}
 
     @staticmethod
     def visit_ports(node, visited_children):
@@ -454,11 +472,7 @@ class DockerfileVisitor(NodeVisitor):
     def visit_expose_port(node, visited_children):
         del node
         ports_struct = visited_children
-        try:
-            protocol_name = ports_struct[0][1][0][1][0].text
-        except (AttributeError, IndexError, TypeError):
-            protocol_name = "tcp"
-        return {'port': ports_struct[0][0], 'protocol': protocol_name}
+        return ports_struct[0]
 
     @staticmethod
     def visit_port_protocol(node, visited_children):

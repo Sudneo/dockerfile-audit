@@ -34,12 +34,17 @@ Implementation Roadmap
 Policy Roadmap
 
 - [X] Enforce registries
-- [ ] Forbids tags
-- [ ] Forbid root User
+- [X] Forbids tags
+- [X] Forbid root User
+- [X] Forbid privileged ports
 - [ ] Forbid Packages
 - [ ] Forbid secrets
 - [ ] Forbid lax chmod
 
+General Improvements
+
+- [ ] Parsing in stages could lead to better results. For example, first parse all ENV variables, replace
+the value of the declared variables everywhere, and then proceed with parsing.
 
 ToDo:
 
@@ -50,6 +55,7 @@ ToDo:
 - [X] LABEL sometimes breaks
 - [ ] COPY --from options
 - [X] FIX EXPOSE command
+- [ ] EXPOSE command, when used with $VARIABLE doesn't support /protocol syntax
 
 Eventual Features:
 
