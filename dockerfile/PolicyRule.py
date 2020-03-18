@@ -25,7 +25,10 @@ class PolicyFailedTestResult:
         self.results.append({'details': details, 'mitigations': mitigations, 'statement': statement, 'type': rule_type})
 
     def get_result(self):
-        return self.results
+        if len(self.results) > 0:
+            return self.results
+        else:
+            return None
 
 
 class PolicyRule:
@@ -47,6 +50,7 @@ class EnforceRegistryPolicy(PolicyRule):
         self.allowed_registries = allowed_registries
 
     def test(self, dockerfile_statements):
+        self.test_result = PolicyFailedTestResult()
         from_statements = dockerfile_statements['from']
         for statement in from_statements:
             registry = statement['registry']
@@ -67,6 +71,7 @@ class ForbidTags(PolicyRule):
         self.forbidden_tags = forbidden_tags
 
     def test(self, dockerfile_statements):
+        self.test_result = PolicyFailedTestResult()
         from_statements = dockerfile_statements['from']
         for statement in from_statements:
             tag = statement['tag']
@@ -84,6 +89,7 @@ class ForbidInsecureRegistries(PolicyRule):
         self.type = PolicyRuleType.FORBID_INSECURE_REGISTRIES
 
     def test(self, dockerfile_statements):
+        self.test_result = PolicyFailedTestResult()
         from_statements = dockerfile_statements['from']
         for statement in from_statements:
             registry = statement['registry']
@@ -101,6 +107,7 @@ class ForbidRoot(PolicyRule):
         self.type = PolicyRuleType.FORBID_ROOT
 
     def test(self, dockerfile_statements):
+        self.test_result = PolicyFailedTestResult()
         user_statements = dockerfile_statements['user']
         if len(user_statements) == 0:
             self.test_result.add_result("No USER statements found. By default, if privileges are not dropped, the "
@@ -125,6 +132,7 @@ class ForbidPrivilegedPorts(PolicyRule):
         self.type = PolicyRuleType.FORBID_PRIVILEGED_PORTS
 
     def test(self, dockerfile_statements):
+        self.test_result = PolicyFailedTestResult()
         expose_statements = dockerfile_statements['expose']
         for statement in expose_statements:
             for port in statement['ports']:

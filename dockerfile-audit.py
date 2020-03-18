@@ -1,6 +1,8 @@
 import os
 import argparse
 import logging
+import jinja2
+from jinja2 import Template
 from dockerfile import Dockerfile
 from dockerfile import Policy
 
@@ -15,10 +17,33 @@ def get_args():
     return args
 
 
+def generate_report(policy_results):
+    total_tests = len(policy_results)
+    successful_tests = len([test for test in policy_results if test['audit-outcome'] == 'pass'])
+    failed_tests = total_tests - successful_tests
+    success_percentage = ( successful_tests * 100) / total_tests
+    latex_jinja_env = jinja2.Environment(
+        block_start_string='\\BLOCK{',
+        block_end_string='}',
+        variable_start_string='\\VAR{',
+        variable_end_string='}',
+        comment_start_string='\\#{',
+        comment_end_string='}',
+        line_statement_prefix='%%',
+        line_comment_prefix='%#',
+        trim_blocks=True,
+        autoescape=False,
+        loader=jinja2.FileSystemLoader(os.path.abspath('/'))
+    )
+
+    pass
+
+
 def main():
     arguments = get_args()
     policy_file = arguments.policy
     policy = None
+    policy_results = list()
     try:
         policy = Policy.DockerfilePolicy(policy_file)
     except FileNotFoundError:
@@ -28,20 +53,19 @@ def main():
     if arguments.dockerfile is not None:
         d = Dockerfile.Dockerfile(arguments.dockerfile)
         policy_result = policy.evaluate_dockerfile(d)
-        print(policy_result)
+        policy_results.append(policy_result)
     else:
         dockerfiles = os.listdir(arguments.batch)
         for file in dockerfiles:
             try:
                 d = Dockerfile.Dockerfile(f"{arguments.batch}/{file}")
             except Dockerfile.NotDockerfileError:
-                print(f"Failed to parse file {file}. Not a valid Dockerfile.")
                 continue
             except Dockerfile.EmptyFileError:
-                print(f"File {file} is empty. Skipping.")
                 continue
             policy_result = policy.evaluate_dockerfile(d)
-            print(policy_result)
+            policy_results.append(policy_result)
+    generate_report(policy_results)
 
 
 if __name__ == '__main__':

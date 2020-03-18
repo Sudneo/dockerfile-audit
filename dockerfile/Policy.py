@@ -12,8 +12,13 @@ class DockerfilePolicy(object):
     def evaluate_dockerfile(self, dockerfile_object):
         test_results = list()
         for policy_rule in self.policy_rules:
-            test_results.append(policy_rule.test(dockerfile_object.get_directives()))
-        return test_results
+            test_rule_result = policy_rule.test(dockerfile_object.get_directives())
+            if test_rule_result is not None:
+                test_results.append(test_rule_result)
+        if len(test_results) > 0:
+            return {'failed-tests': test_results, 'audit-outcome': 'fail'}
+        else:
+            return {'audit-outcome': 'pass'}
 
     def init_rules(self):
         try:
