@@ -129,7 +129,7 @@ def get_summary_stats(policy_results):
 
 
 def get_rules_violation_stats(policy_results, policy):
-    total = len(policy_results)
+    total = 0
     violation_stats = dict()
     for rule in policy.get_policy_rules_enabled():
         violation_stats[latex_escape(rule['type'])] = {'count': 0}
@@ -138,6 +138,7 @@ def get_rules_violation_stats(policy_results, policy):
             for failed_test in test['failed-tests']:
                 for instance in failed_test:
                     violation_stats[latex_escape(instance['type'])]['count'] += 1
+                    total += 1
     for key in violation_stats.keys():
         violation_stats[key]['percentage'] = round(violation_stats[key]['count'] * 100 / total, 2)
     return violation_stats
