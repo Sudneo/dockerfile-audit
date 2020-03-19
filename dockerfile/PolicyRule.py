@@ -73,7 +73,7 @@ class EnforceRegistryPolicy(PolicyRule):
             registry = statement['registry']
             # check if registry is a local_name for other FROM
             for s in from_statements:
-                if registry == s['local_name']:
+                if statement['image'] == s['local_name']:
                     continue
             if registry not in self.allowed_registries:
                 self.test_result.add_result(f"Registry {registry} is not an allowed registry to "
