@@ -81,6 +81,57 @@ python dockerfile-audit.py -b /tmp/dockerfiles -r
 
 An example of the report can be found in the `docs` folder. 
 
+### Policy customization
+
+The structure supported for the policy is the one in the default `policy.yaml`, and it is like the following:
+
+```yaml
+policy:
+    enforce_authorized_registries:
+      enabled: True
+      # List of registries allowed - by default no registry is parsed as Docker Hub
+      registries:
+        - Docker Hub
+        - https://test.example.com:5000
+    forbid_floating_tags:
+      enabled: True
+      # List of forbidden tags
+      forbidden_tags:
+        - latest
+        - stable
+        - prod
+        - stage
+    forbid_insecure_registries:
+      enabled: True
+    forbid_root:
+      enabled: True
+    forbid_privileged_ports:
+      enabled: True
+    forbid_packages:
+      enabled: True
+      # List of forbidden packages
+      forbidden_packages:
+        - sudo
+        - vim
+        - netcat
+        - nc
+        - curl
+        - wget
+    forbid_secrets:
+      enabled: True
+      # List of patterns that will be considered secrets. The match won't be exact
+      # password_test will also match pattern `password`
+      secrets_patterns:
+        - id_rsa
+        - private_key
+        - password
+        - key
+        - secret
+      # Whitelist some exact patterns. id_rsa.pub avoids the match for id_rsa.
+      allowed_patterns:
+        - id_rsa.pub
+```
+
 ### Screenshots
 
 ![Cover](docs/images/cover.png)
