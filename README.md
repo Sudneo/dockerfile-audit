@@ -45,6 +45,9 @@ General Improvements
 
 - [ ] Parsing in stages could lead to better results. For example, first parse all ENV variables, replace
 the value of the declared variables everywhere, and then proceed with parsing.
+- [ ] RUN/CMD/ENTRYPOINTS command are harder to parse. If a package is installed and then removed, the search will
+find 2 matches, while the package is correctly removed. Implementing RUN/CMD/ENTRYPOINT specific parsing might
+allow to find out if package is installed and then removed.
 
 ToDo:
 

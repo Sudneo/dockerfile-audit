@@ -28,8 +28,11 @@ policy:
         - wget
     forbid_secrets:
       enabled: True
-      secrets_name:
+      secrets_patterns:
         - id_rsa
         - private_key
-    forbid_lax_chmod:
-      enabled: False
+        - password
+        - key
+        - secret
+      allowed_patterns:
+        - id_rsa.pub

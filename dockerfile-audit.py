@@ -27,22 +27,22 @@ def generate_report(policy, policy_results):
     compliance_color = "red"
     if success_percentage < 10:
         compliance_level = "Poor"
-        compliance_color = "red!30"
+        compliance_color = "red!50"
     elif success_percentage < 25:
         compliance_level = "Low"
-        compliance_color = "red!10"
+        compliance_color = "red!30"
     elif success_percentage < 50:
         compliance_level = "Medium"
-        compliance_color = "orange!10"
+        compliance_color = "orange!50"
     elif success_percentage < 80:
         compliance_level = "Fair"
-        compliance_color = "red!10"
+        compliance_color = "green!20"
     elif 80 < success_percentage < 100:
         compliance_level = "Good"
         compliance_color = "green!35"
     elif success_percentage == 100:
         compliance_level = "Perfect"
-        compliance_color = "green!25"
+        compliance_color = "green!50"
     summary_stats = {'total_tests': total_tests,
                      'success_tests': successful_tests,
                      'failed_tests': failed_tests,
@@ -51,16 +51,19 @@ def generate_report(policy, policy_results):
                      'compliance_level': compliance_level,
                      'compliance_color': compliance_color}
     enabled_policy_rules = {'policy_rules_enabled': policy.get_policy_rules_enabled()}
+    for enabled_rule in enabled_policy_rules['policy_rules_enabled']:
+        enabled_rule['type'] = latex_escape(enabled_rule['type'])
+        enabled_rule['details'] = latex_escape(enabled_rule['details'])
     for item in policy_results:
-        item['filename'] = item['filename'].replace('_', '\\_')
+        item['filename'] = latex_escape(item['filename'])
         try:
             for rule_test in item['failed-tests']:
                 for rule in rule_test:
-                    rule['type'] = rule['type'].replace('_', '\\_')
-                    rule['details'] = rule['details'].replace('_', '\\_').replace("$", "\\$")
-                    rule['mitigations'] = rule['mitigations'].replace('_', '\\_').replace("$", "\\$")
+                    rule['type'] = latex_escape(rule['type'])
+                    rule['details'] = latex_escape(rule['details'])
+                    rule['mitigations'] = latex_escape(rule['mitigations'])
                     try:
-                        rule['statement'] = rule['statement'].replace('_', '\\_').replace("$", "\\$")
+                        rule['statement'] = latex_escape(rule['statement'])
                     except AttributeError:
                         pass
         except KeyError:
@@ -94,6 +97,13 @@ def generate_report(policy, policy_results):
     copyfile(f"{out_file}.pdf", "report.pdf")
 
 
+def latex_escape(string):
+    if string is None:
+        return "N/A"
+    broken_string = '\\allowbreak '.join([string[i:i+25] for i in range(0, len(string), 25)])
+    return broken_string.replace('_', "\\_").replace('$', '\\$').replace('%', '\\%').replace('&', '\\&')
+
+
 def main():
     arguments = get_args()
     policy_file = arguments.policy
@@ -101,9 +111,11 @@ def main():
     policy_results = list()
     try:
         policy = Policy.DockerfilePolicy(policy_file)
-    except FileNotFoundError:
+    except FileNotFoundError as error:
+        logger.error(error)
         exit(1)
-    except TypeError:
+    except TypeError as error:
+        logger.error(error)
         exit(1)
     if arguments.dockerfile is not None:
         d = Dockerfile.Dockerfile(arguments.dockerfile)

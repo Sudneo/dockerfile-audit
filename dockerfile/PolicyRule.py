@@ -1,5 +1,6 @@
 from enum import Enum
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class EnforceRegistryPolicy(PolicyRule):
             registry = statement['registry']
             if registry not in self.allowed_registries:
                 self.test_result.add_result(f"Registry {registry} is not an allowed registry to "
-                                            f"pull images from",
+                                            f"pull images from.",
                                             f"The FROM statement should be changed using images from one of the allowed"
                                             f" registries: {', '.join(self.allowed_registries)}", self.type,
                                             statement['raw_content'])
@@ -139,7 +140,7 @@ class ForbidRoot(PolicyRule):
             self.test_result.add_result("No USER statements found. By default, if privileges are not dropped, the "
                                         "container will run as root.",
                                         "Create a user and add a USER statement before the entrypoint of the image"
-                                        "to run the application as a non-privileged user.",
+                                        " to run the application as a non-privileged user.",
                                         self.type, statement=None)
         else:
             last_user = user_statements[-1]['user']
@@ -193,3 +194,78 @@ class ForbidPrivilegedPorts(PolicyRule):
                 if env_name in v.keys():
                     return v[env_name]
         return None
+
+
+class ForbidPackages(PolicyRule):
+
+    def __init__(self, forbidden_packages):
+        super().__init__()
+        self.description = "Forbid the installation/use of dangerous packages."
+        self.type = PolicyRuleType.FORBID_PACKAGES
+        self.forbidden_packages = forbidden_packages
+
+    def test(self, dockerfile_statements):
+        self.test_result = PolicyFailedTestResult()
+        run_statements = dockerfile_statements['run']
+        entrypoint_statements = dockerfile_statements['entrypoint']
+        cmd_statements = dockerfile_statements['cmd']
+
+        for statement in entrypoint_statements+run_statements+cmd_statements:
+            for package in self.forbidden_packages:
+                package_regex = re.compile(f"(^|[^a-zA-Z0-9]){package}([^a-zA-Z0-9]|$)")
+                match = package_regex.search(statement['raw_content'])
+                if match is not None:
+                    self.test_result.add_result(f"Forbidden package \"{package}\" is installed or used.",
+                                                f"The RUN/CMD/ENTRYPOINT statement should be reviewed and package"
+                                                f" \"{package}\" should be removed unless absolutely necessary.",
+                                                self.type, statement['raw_content'])
+        return self.test_result.get_result()
+
+    def details(self):
+        return f"The following packages are forbidden: {', '.join(self.forbidden_packages)}."
+
+
+class ForbidSecrets(PolicyRule):
+
+    def __init__(self, secrets_patterns, allowed_patterns):
+        super().__init__()
+        self.description = "Forbid the inclusion of secrets in the image."
+        self.type = PolicyRuleType.FORBID_SECRETS
+        self.secrets_patterns = secrets_patterns
+        self.allowed_patterns = allowed_patterns
+
+    def test(self, dockerfile_statements):
+        self.test_result = PolicyFailedTestResult()
+        add_statement = dockerfile_statements['add']
+        copy_statements = dockerfile_statements['copy']
+        for statement in add_statement+copy_statements:
+            for source in statement['source']:
+                is_forbidden, pattern = self.__is_forbidden_pattern(source)
+                if is_forbidden and not self.__is_whitelisted_pattern(source):
+                    self.test_result.add_result(f"Forbidden file matching pattern \"{pattern}\" is added into "
+                                                f"the image.",
+                                                f"The ADD/COPY statement should be changed or removed. Secrets"
+                                                f" should be provisioned using a safer and stateless way (Vault,"
+                                                f" Kubernetes secrets) instead.",
+                                                self.type, statement['raw_content'])
+        return self.test_result.get_result()
+
+    def __is_forbidden_pattern(self, string):
+        for pattern in self.secrets_patterns:
+            secret_regex = re.compile(pattern)
+            match_source = secret_regex.search(string)
+            if match_source is not None:
+                return True, pattern
+        return False, None
+
+    def __is_whitelisted_pattern(self, string):
+        for p in self.allowed_patterns:
+            allowed_regex = re.compile(p)
+            match_allowed = allowed_regex.search(string)
+            if match_allowed is not None:
+                return True
+        return False
+
+    def details(self):
+        return f"The following patterns are forbidden: {', '.join(self.secrets_patterns)}.\n" \
+               f"The following patterns are whitelisted: {', '.join(self.allowed_patterns)}"

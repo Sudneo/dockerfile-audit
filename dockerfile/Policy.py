@@ -62,6 +62,30 @@ class DockerfilePolicy(object):
                 self.policy_rules.append(ForbidPrivilegedPorts())
         except KeyError:
             logger.debug("No forbid_privileged_ports found in policy, skipping.")
+        try:
+            forbid_packages = policies['forbid_packages']
+            if forbid_packages['enabled']:
+                self.policy_rules.append(ForbidPackages(forbid_packages['forbidden_packages']))
+        except KeyError:
+            logger.debug("No forbid_packages found in policy, skipping.")
+        try:
+            forbid_secrets = policies['forbid_secrets']
+            if forbid_secrets['enabled']:
+                try:
+                    forbid_patterns = forbid_secrets['secrets_patterns']
+                    try:
+                        allowed_patterns = forbid_secrets['allowed_patterns']
+                    except KeyError:
+                        allowed_patterns = []
+                        pass
+                    if len(forbid_patterns) == 0:
+                        logger.debug("secrets_patterns defined but with an empty list. Skipping.")
+                    else:
+                        self.policy_rules.append(ForbidSecrets(forbid_patterns, allowed_patterns))
+                except KeyError:
+                    logger.error('forbid_secrets rule added but not secrets_patterns defined.')
+        except KeyError:
+            logger.debug("No forbid_secrets found in policy, skipping.")
 
     def get_policy_rules_enabled(self):
         enabled_rules = list()
@@ -69,6 +93,6 @@ class DockerfilePolicy(object):
             rule_details = rule.details()
             if rule_details is None:
                 rule_details = ""
-            enabled_rules.append({'type': rule.get_type().replace('_', ' '), 'description': rule.describe(),
+            enabled_rules.append({'type': rule.get_type(), 'description': rule.describe(),
                                   'details': rule_details})
         return enabled_rules
