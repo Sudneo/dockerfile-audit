@@ -78,7 +78,18 @@
 			\end{tabular}
 	    \caption{Policy rules enforced for this audit.}
 	\end{table}
-
+	The rules violation breakdown is as follows:
+	\begin{table}[H]
+	    \small
+			\begin{tabular}{| p{7cm} | p{3cm} | p{3cm} |}
+				\hline
+				\textbf{Rule Name} & \textbf{Total Violation} & \textbf{Violation \%} \\ \hline
+				\BLOCK{ for rule in failure_stats.keys()}
+                \VAR{rule} & \VAR{failure_stats[rule]["count"]} & \VAR{failure_stats[rule]["percentage"]}\% \\ \hline
+				\BLOCK{ endfor }
+			\end{tabular}
+	    \caption{Policy rules violation breakdown.}
+	\end{table}
 	\pagebreak
 \begin{landscape}
 	\chapter{Audit Details}

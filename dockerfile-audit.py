@@ -23,6 +23,7 @@ def generate_report(policy, policy_results):
     failed_tests = total_tests - successful_tests
     success_percentage = round((successful_tests * 100) / total_tests, 2)
     failed_percentage = round((failed_tests * 100) / total_tests, 2)
+    failure_stats = get_rules_violation_stats(policy_results, policy)
     compliance_level = "N/A"
     compliance_color = "red"
     if success_percentage < 10:
@@ -83,7 +84,9 @@ def generate_report(policy, policy_results):
         loader=jinja2.FileSystemLoader(os.path.abspath('.'))
     )
     template = latex_jinja_env.get_template('templates/report-template.tex')
-    rendered_template = template.render(summary_stats=summary_stats, enabled_policy_rules=enabled_policy_rules,
+    rendered_template = template.render(summary_stats=summary_stats,
+                                        failure_stats=failure_stats,
+                                        enabled_policy_rules=enabled_policy_rules,
                                         audit_results=audit_results)
     build_dir = ".build"
     if not os.path.exists(build_dir):
@@ -95,6 +98,21 @@ def generate_report(policy, policy_results):
     os.system(f"cd {build_dir} && pdflatex -output-directory {os.path.realpath(build_dir)} "
               f"{os.path.realpath(out_file)}")
     copyfile(f"{out_file}.pdf", "report.pdf")
+
+
+def get_rules_violation_stats(policy_results, policy):
+    total = len(policy_results)
+    violation_stats = dict()
+    for rule in policy.get_policy_rules_enabled():
+        violation_stats[latex_escape(rule['type'])] = {'count': 0}
+    for test in policy_results:
+        if test['audit-outcome'] == "fail":
+            for failed_test in test['failed-tests']:
+                for instance in failed_test:
+                    violation_stats[latex_escape(instance['type'])]['count'] += 1
+    for key in violation_stats.keys():
+        violation_stats[key]['percentage'] = round(violation_stats[key]['count'] * 100 / total, 2)
+    return violation_stats
 
 
 def latex_escape(string):
