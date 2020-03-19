@@ -63,7 +63,7 @@ def generate_report(policy, policy_results):
                     rule['details'] = latex_escape(rule['details'])
                     rule['mitigations'] = latex_escape(rule['mitigations'])
                     try:
-                        rule['statement'] = latex_escape(rule['statement'])
+                        rule['statement'] = latex_escape_tiny(rule['statement'])
                     except AttributeError:
                         pass
         except KeyError:
@@ -101,6 +101,13 @@ def latex_escape(string):
     if string is None:
         return "N/A"
     broken_string = '\\allowbreak '.join([string[i:i+25] for i in range(0, len(string), 25)])
+    return broken_string.replace('_', "\\_").replace('$', '\\$').replace('%', '\\%').replace('&', '\\&')
+
+
+def latex_escape_tiny(string):
+    if string is None:
+        return "N/A"
+    broken_string = '\\allowbreak '.join([string[i:i+48] for i in range(0, len(string), 48)])
     return broken_string.replace('_', "\\_").replace('$', '\\$').replace('%', '\\%').replace('&', '\\&')
 
 

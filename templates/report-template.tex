@@ -100,7 +100,7 @@
 			\textbf{Rule Name} & \textbf{Description} & \textbf{Mitigation} & \textbf{Statement}\\ \hline
 			\BLOCK{ for failed_rule_type in result["failed-tests"] }
 				\BLOCK{ for failed_rule in failed_rule_type }
-					\tiny{\VAR{failed_rule["type"]}} & \VAR{failed_rule["details"]} & \VAR{failed_rule["mitigations"]} & \texttt{\VAR{failed_rule["statement"]}} \\ \hline
+					\tiny{\VAR{failed_rule["type"]}} & \VAR{failed_rule["details"]} & \VAR{failed_rule["mitigations"]} & \tiny{\texttt{\VAR{failed_rule["statement"]}}} \\ \hline
 				\BLOCK{ endfor }
 			\BLOCK{ endfor }
 			\caption{Failed policy tests for \textit{\VAR{result["filename"]}}.}
