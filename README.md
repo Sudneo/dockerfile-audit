@@ -79,6 +79,8 @@ To scan a directory in which every file is a Dockerfile (with its own name):
 python dockerfile-audit.py -b /tmp/dockerfiles -r
 ```
 
+An example of the report can be found in the `docs` folder. 
+
 ### Screenshots
 
 ![Cover](docs/images/cover.png)
