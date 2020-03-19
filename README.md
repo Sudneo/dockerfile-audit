@@ -1,4 +1,4 @@
-# dockerfile-audit
+# Dockerfile-audit
 
 This tool aims to provide an extensible and straightforward way to perform targeted and mass auditing of Dockerfile's.
 The main idea is not to focus on linting or syntax, but to focus on semantic, trying to prevent insecure images from being built.
