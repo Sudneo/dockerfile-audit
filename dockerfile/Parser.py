@@ -70,7 +70,7 @@ grammar = Grammar(
     from                  = space* "FROM"
     platform              = "--platform=" word_symbols space+
     registry              = host (":" port)? "/"
-    host                  = (protocol)? ~"[a-zA-Z0-9.-]+"
+    host                  = (protocol)? ~"[a-zA-Z0-9.-]+[.][a-zA-Z0-9.-]+"
     protocol              = ("https://" / "http://")
     port                  = ~"[0-9]{1,5}"
     image_name            = ~"[a-zA-Z0-9][a-zA-Z0-9_.\\-/]+"
