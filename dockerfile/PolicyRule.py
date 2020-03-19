@@ -72,15 +72,17 @@ class EnforceRegistryPolicy(PolicyRule):
         for statement in from_statements:
             registry = statement['registry']
             # check if registry is a local_name for other FROM
+            is_from_local_image = False
             for s in from_statements:
                 if statement['image'] == s['local_name']:
-                    continue
-            if registry not in self.allowed_registries:
-                self.test_result.add_result(f"Registry {registry} is not an allowed registry to "
-                                            f"pull images from.",
-                                            f"The FROM statement should be changed using images from one of the allowed"
-                                            f" registries: {', '.join(self.allowed_registries)}", self.type,
-                                            statement['raw_content'])
+                    is_from_local_image = True
+            if not is_from_local_image:
+                if registry not in self.allowed_registries:
+                    self.test_result.add_result(f"Registry {registry} is not an allowed registry to "
+                                                f"pull images from.",
+                                                f"The FROM statement should be changed using images from one of the allowed"
+                                                f" registries: {', '.join(self.allowed_registries)}", self.type,
+                                                statement['raw_content'])
         return self.test_result.get_result()
 
     def details(self):
