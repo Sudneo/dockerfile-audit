@@ -145,8 +145,12 @@ def get_rules_violation_stats(policy_results, policy):
                 for instance in failed_test:
                     violation_stats[latex_escape(instance['type'])]['count'] += 1
                     total += 1
-    for key in violation_stats.keys():
-        violation_stats[key]['percentage'] = round(violation_stats[key]['count'] * 100 / total, 2)
+    if total == 0:
+        for key in violation_stats.keys():
+            violation_stats[key]['percentage'] = 0
+    else:
+        for key in violation_stats.keys():
+            violation_stats[key]['percentage'] = round(violation_stats[key]['count'] * 100 / total, 2)
     return violation_stats
 
 

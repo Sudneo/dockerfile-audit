@@ -80,8 +80,8 @@ class EnforceRegistryPolicy(PolicyRule):
                 if registry not in self.allowed_registries:
                     self.test_result.add_result(f"Registry {registry} is not an allowed registry to "
                                                 f"pull images from.",
-                                                f"The FROM statement should be changed using images from one of the allowed"
-                                                f" registries: {', '.join(self.allowed_registries)}", self.type,
+                                                f"The FROM statement should be changed using images from one of the "
+                                                f"allowed registries: {', '.join(self.allowed_registries)}", self.type,
                                                 statement['raw_content'])
         return self.test_result.get_result()
 
@@ -104,10 +104,11 @@ class ForbidTags(PolicyRule):
         for statement in from_statements:
             tag = statement['tag']
             if tag in self.forbidden_tags:
-                self.test_result.add_result(f"Tag {tag} is not allowed",
+                self.test_result.add_result(f"Tag {tag} is not allowed.",
                                             f"The FROM statements should be changed using an image with a fixed tag or "
                                             f"without any of the following tags: {', '.join(self.forbidden_tags)}",
                                             self.type, statement['raw_content'])
+        return self.test_result.get_result()
 
     def details(self):
         return f"The following tags are forbidden: {', '.join(self.forbidden_tags)}."
