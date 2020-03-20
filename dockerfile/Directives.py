@@ -49,7 +49,7 @@ class FromDirective(DockerfileDirective):
         try:
             self.platform = data['platform']
         except KeyError:
-            logger.info(f"Platform field missing.")
+            logger.debug(f"Platform field missing.")
             pass
         try:
             self.registry = data['registry']

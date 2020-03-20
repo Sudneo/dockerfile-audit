@@ -16,9 +16,11 @@ class DockerfilePolicy(object):
             if test_rule_result is not None:
                 test_results.append(test_rule_result)
         if len(test_results) > 0:
-            return {'failed-tests': test_results, 'audit-outcome': 'fail', 'filename': dockerfile_object.get_filename()}
+            return {'failed-tests': test_results, 'audit-outcome': 'fail', 'filename': dockerfile_object.get_filename(),
+                    'maintainers': dockerfile_object.get_maintainers()}
         else:
-            return {'audit-outcome': 'pass', 'filename': dockerfile_object.get_filename()}
+            return {'audit-outcome': 'pass', 'filename': dockerfile_object.get_filename(),
+                    'maintainers': dockerfile_object.get_maintainers()}
 
     def init_rules(self):
         try:

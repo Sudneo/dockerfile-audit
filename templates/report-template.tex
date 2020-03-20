@@ -101,6 +101,8 @@
 	\section{\VAR{result["filename"]}}
 	Audit outcome: \BLOCK{ if result["audit-outcome"] == "pass"} \colorbox{green!50}{PASS} \BLOCK{ elif result["audit-outcome"] == "fail" } \colorbox{red!50}{FAIL} \BLOCK{ endif }
 	\\
+	Maintainers: \texttt{\VAR{result["maintainers"]}}
+	\\
 	\linebreak
 	\BLOCK{ if result["audit-outcome"] == "fail"}
 	The details for the violated rules are in the following table:

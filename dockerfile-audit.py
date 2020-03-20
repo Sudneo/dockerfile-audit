@@ -3,6 +3,7 @@ import subprocess
 import argparse
 import logging
 import jinja2
+import json
 from shutil import copyfile
 from dockerfile import Dockerfile
 from dockerfile import Policy
@@ -14,7 +15,8 @@ def get_args():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-d", "--dockerfile", type=str, help="The Dockerfile to audit.")
     group.add_argument("-b", "--batch", type=str, help="A directory in which all files will be audited.")
-    parser.add_argument("-r", "--report", action='store_true', help="Generate a PDF report about the findings")
+    parser.add_argument("-j", "--json", action='store_true', help="Generate a JSON file with the findings.")
+    parser.add_argument("-r", "--report", action='store_true', help="Generate a PDF report about the findings.")
     parser.add_argument("-n", "--report-name", default="report.pdf", help="The name of the PDF report.")
     parser.add_argument("-t", "--report-template", default="templates/report-template.tex",
                         help="The template for the report to use")
@@ -23,6 +25,7 @@ def get_args():
 
 
 def generate_report(policy, policy_results, template, outfile):
+    logger.info("Starting report generation.")
     failure_stats = get_rules_violation_stats(policy_results, policy)
     summary_stats = get_summary_stats(policy_results)
     enabled_policy_rules = {'policy_rules_enabled': policy.get_policy_rules_enabled()}
@@ -75,21 +78,24 @@ def generate_report(policy, policy_results, template, outfile):
                      " Images might not be rendered")
         logger.error(error)
     try:
+        logger.info("Running first Latex build of the report.")
         subprocess.run(f"cd {build_dir} && pdflatex -output-directory {os.path.realpath(build_dir)}"
                        f" {os.path.realpath(out_file)}",
-                       check=True, shell=True)
+                       check=True, shell=True, stdout=subprocess.DEVNULL)
     except subprocess.CalledProcessError as error:
         logger.error("The first Pdflatex iteration failed.")
         logger.error(error)
     try:
         # build a second time for TOC
+        logger.info("Rebuilding report for Table of Contents.")
         subprocess.run(f"cd {build_dir} && pdflatex -output-directory {os.path.realpath(build_dir)}"
                        f" {os.path.realpath(out_file)}",
-                       check=True, shell=True)
+                       check=True, shell=True, stdout=subprocess.DEVNULL)
     except subprocess.CalledProcessError as error:
         logger.error("The second Pdflatex iteration failed.")
         logger.error(error)
     copyfile(f"{out_file}.pdf", outfile)
+    logger.info(f"Report generated: {outfile}")
 
 
 def get_summary_stats(policy_results):
@@ -186,6 +192,9 @@ def main():
                 continue
             policy_result = policy.evaluate_dockerfile(d)
             policy_results.append(policy_result)
+    if arguments.json:
+        with open("dockerfile-audit.json", "w") as fp:
+            json.dump(policy_results, indent=2, sort_keys=True, fp=fp)
     if arguments.report:
         logger.debug("Preparing to generate PDF report.")
         template = arguments.report_template
@@ -195,6 +204,7 @@ def main():
 
 if __name__ == '__main__':
     logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
     FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
     logging.basicConfig(format=FORMAT)
     main()

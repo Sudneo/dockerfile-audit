@@ -92,3 +92,17 @@ class Dockerfile:
         empty_lines = re.compile('[\n]{2,}')
         normalized_content = empty_lines.sub('\n', normalized_content)
         return normalized_content.lstrip('\n')
+
+    def get_maintainers(self):
+        labels_dir = [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.LABEL)]
+        maint_dir = [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.MAINTAINER)]
+        if len(maint_dir) > 0:
+            return ', '.join(maint_dir[0]['maintainers'])
+        else:
+            for d in labels_dir:
+                labels = d['labels']
+                for l in labels:
+                    for v in l.keys():
+                        if v == "maintainer" or v == "MAINTAINER":
+                            return l[v]
+        return None
