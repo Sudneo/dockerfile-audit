@@ -70,6 +70,8 @@ class EnforceRegistryPolicy(PolicyRule):
         self.test_result = PolicyFailedTestResult()
         from_statements = dockerfile_statements['from']
         for statement in from_statements:
+            if statement['image'] == 'scratch':
+                continue
             registry = statement['registry']
             # check if registry is a local_name for other FROM
             is_from_local_image = False
@@ -102,6 +104,8 @@ class ForbidTags(PolicyRule):
         self.test_result = PolicyFailedTestResult()
         from_statements = dockerfile_statements['from']
         for statement in from_statements:
+            if statement['image'] == 'scratch':
+                continue
             tag = statement['tag']
             if tag in self.forbidden_tags:
                 self.test_result.add_result(f"Tag {tag} is not allowed.",
