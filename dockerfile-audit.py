@@ -20,6 +20,7 @@ def get_args():
     parser.add_argument("-n", "--report-name", default="report.pdf", help="The name of the PDF report.")
     parser.add_argument("-t", "--report-template", default="templates/report-template.tex",
                         help="The template for the report to use")
+    parser.add_argument("-v", "--verbose", action='store_true', help="Enables debug output")
     args = parser.parse_args()
     return args
 
@@ -170,6 +171,10 @@ def latex_escape_tiny(string):
 
 def main():
     arguments = get_args()
+    if arguments.verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
     policy_file = arguments.policy
     policy = None
     policy_results = list()
@@ -208,7 +213,6 @@ def main():
 
 if __name__ == '__main__':
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
     FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
     logging.basicConfig(format=FORMAT)
     main()

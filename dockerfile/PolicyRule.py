@@ -1,6 +1,7 @@
 from enum import Enum
 import logging
 import re
+import shlex
 
 logger = logging.getLogger(__name__)
 
@@ -220,17 +221,86 @@ class ForbidPackages(PolicyRule):
         run_statements = dockerfile_statements['run']
         entrypoint_statements = dockerfile_statements['entrypoint']
         cmd_statements = dockerfile_statements['cmd']
-
-        for statement in entrypoint_statements+run_statements+cmd_statements:
+        commands = self.__split_single_commands(dockerfile_statements['run_last_stage'])
+        installed_packages = self.__get_installed_packages(commands)
+        if len(installed_packages) == 0:
+            logger.warning(f"No automated package install detection. Falling back on dumb detection.")
+            for statement in entrypoint_statements+run_statements+cmd_statements:
+                for package in self.forbidden_packages:
+                    package_regex = re.compile(f"(^|[^a-zA-Z0-9]){package}([^a-zA-Z0-9]|$)")
+                    match = package_regex.search(statement['raw_content'])
+                    if match is not None:
+                        self.test_result.add_result(f"Forbidden package \"{package}\" is installed or used.",
+                                                    f"The RUN/CMD/ENTRYPOINT statement should be reviewed and package"
+                                                    f" \"{package}\" should be removed unless absolutely necessary.",
+                                                    self.type, statement['raw_content'])
+        else:
+            logger.debug(f"Found the following installed packages: {installed_packages}")
             for package in self.forbidden_packages:
-                package_regex = re.compile(f"(^|[^a-zA-Z0-9]){package}([^a-zA-Z0-9]|$)")
-                match = package_regex.search(statement['raw_content'])
-                if match is not None:
-                    self.test_result.add_result(f"Forbidden package \"{package}\" is installed or used.",
-                                                f"The RUN/CMD/ENTRYPOINT statement should be reviewed and package"
+                if package in installed_packages:
+                    self.test_result.add_result(f"Forbidden package \"{package}\" is installed.",
+                                                f"The RUN statements should be reviewed and package"
                                                 f" \"{package}\" should be removed unless absolutely necessary.",
-                                                self.type, statement['raw_content'])
+                                                self.type, None)
         return self.test_result.get_result()
+
+    @staticmethod
+    def __get_installed_packages(commands):
+        package_manager_commands = {'apt-get': {'install': ['install'], 'remove': ['remove', 'purge']},
+                                    'apt': {'install': ['install'], 'remove': ['remove', 'purge']},
+                                    'dnf': {'install': ['install'], 'remove': ['remove', 'autoremove']},
+                                    'yum': {'install': ['install'], 'remove': ['remove', 'erase', 'autoremove']},
+                                    'apk': {'install': ['add'], 'remove': ['del']}}
+        flag_regex = re.compile("^[-]{1,2}[\\S]+$")
+        packages_installed = list()
+        packages_removed = list()
+        # For every command
+        for command in commands:
+            # For every token in the command
+            for i in range(len(command)):
+                # If token at index i is not a package manager key, continue
+                if command[i] not in package_manager_commands.keys():
+                    continue
+                # If token at index i is a package manager key
+                else:
+                    # key = package-manager name
+                    key = command[i]
+                    # For every word after the package manager key
+                    for k in range(len(command[i+1:])):
+                        next_command = command[i+1+k]
+                        # If a word starts with - or -- ignore it
+                        if flag_regex.match(next_command):
+                            continue
+                        # If a word is an 'install' command for that package manager
+                        elif next_command in package_manager_commands[key]['install']:
+                            # Add to packages installed every word after it
+                            packages_installed += command[i+1+k+1:]
+                            break
+                        # If a word is a 'remove' command for that package manager
+                        elif next_command in package_manager_commands[key]['remove']:
+                            packages_removed += command[i+1+k+1:]
+                            break
+                    break
+        final_packages = [p for p in packages_installed if p not in packages_removed and not flag_regex.match(p)]
+        return final_packages
+
+    @staticmethod
+    def __split_single_commands(run_directives):
+        commands = list()
+        for directive in run_directives:
+            subcommand = list()
+            try:
+                parsed = shlex.split(directive['raw_content'])
+            except ValueError:
+                break
+            for word in parsed:
+                if word in ['&', '&&', '|', '||', ';']:
+                    commands.append(subcommand)
+                    subcommand = list()
+                else:
+                    subcommand.append(word)
+            commands.append(subcommand)
+        return commands
 
     def details(self):
         return f"The following packages are forbidden: {', '.join(self.forbidden_packages)}."

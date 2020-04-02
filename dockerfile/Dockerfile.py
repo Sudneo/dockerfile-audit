@@ -35,6 +35,9 @@ class Dockerfile:
         except IsADirectoryError:
             logger.error(f"{filename} is a directory, expected a file.")
             raise NotDockerfileError
+        except FileNotFoundError:
+            logger.error(f"{filename} does not exist.")
+            raise NotDockerfileError
         try:
             tree = grammar.parse(self.dockerfile_content)
         except IncompleteParseError:
@@ -54,6 +57,17 @@ class Dockerfile:
     def add_directive(self, directive):
         self.directives.append(directive)
 
+    def get_run_directives_last_stage(self):
+        directives = self.directives.copy()
+        directives.reverse()
+        run_directives = list()
+        for directive in directives:
+            if directive.get()['type'] == str(DockerfileDirectiveType.RUN):
+                run_directives.append(directive.get())
+            if directive.get()['type'] == str(DockerfileDirectiveType.FROM):
+                break
+        return run_directives
+
     def get_directives(self):
         result = {
             'from': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.FROM)],
@@ -72,6 +86,7 @@ class Dockerfile:
             'shell': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.SHELL)],
             'stopsignal': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.STOPSIGNAL)],
             'arg': [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.ARG)],
+            'run_last_stage': self.get_run_directives_last_stage()
         }
         return result
 
