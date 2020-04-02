@@ -46,8 +46,8 @@ If you want to generate reports you need to also have `pdflatex` installed.
 
 ```bash
 $ python dockerfile-audit.py -h
-usage: dockerfile-audit.py [-h] [-p POLICY] (-d DOCKERFILE | -b BATCH) [-r]
-                           [-n REPORT_NAME] [-t REPORT_TEMPLATE]
+usage: dockerfile-audit.py [-h] [-p POLICY] (-d DOCKERFILE | -b BATCH) [-j]
+                           [-r] [-n REPORT_NAME] [-t REPORT_TEMPLATE] [-v]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -57,11 +57,13 @@ optional arguments:
                         The Dockerfile to audit.
   -b BATCH, --batch BATCH
                         A directory in which all files will be audited.
-  -r, --report          Generate a PDF report about the findings
+  -j, --json            Generate a JSON file with the findings.
+  -r, --report          Generate a PDF report about the findings.
   -n REPORT_NAME, --report-name REPORT_NAME
                         The name of the PDF report.
   -t REPORT_TEMPLATE, --report-template REPORT_TEMPLATE
                         The template for the report to use
+  -v, --verbose         Enables debug output
 ```
 
 By default the report template is the one included in `templates/report-template.tex`, the report generated is called
