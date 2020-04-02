@@ -192,6 +192,7 @@ def main():
         policy_results.append(policy_result)
     else:
         dockerfiles = os.listdir(arguments.batch)
+        dockerfiles = sorted(dockerfiles)
         for file in dockerfiles:
             try:
                 d = Dockerfile.Dockerfile(f"{arguments.batch}/{file}")
