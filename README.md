@@ -190,11 +190,11 @@ Preprocessing does the following actions:
 
 - [ ] Parsing in stages could lead to better results. For example, first parse all ENV variables, replace
 the value of the declared variables everywhere, and then proceed with parsing.
-- [ ] RUN/CMD/ENTRYPOINTS command are harder to parse. If a package is installed and then removed, the search will
+- [X] RUN/CMD/ENTRYPOINTS command are harder to parse. If a package is installed and then removed, the search will
 find 2 matches, while the package is correctly removed. Implementing RUN/CMD/ENTRYPOINT specific parsing might
 allow to find out if package is installed and then removed.
-- [ ] Use shlex for better RUN parsing
-- [ ] Allow --json format in alternative to report to produce simply a json of the result
+- [X] Use shlex for better RUN parsing
+- [X] Allow --json format in alternative to report to produce simply a json of the result
 - [ ] Allow --parse format in alternative to report to simply return the parsed Dockerfile
 - [X] Optimize Grammar, remove duplicate terminals and reduce the number of rules.
 - [X] Implement comments parsing between RUN multiline commands.
