@@ -6,6 +6,7 @@ from .Parser import grammar
 from .Parser import DockerfileVisitor
 from parsimonious.exceptions import IncompleteParseError
 from parsimonious.exceptions import VisitationError
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -24,35 +25,34 @@ class EmptyFileError(Error):
 
 class Dockerfile:
 
-    def __init__(self, filename):
+    def __init__(self, path):
         self.directives = list()
-        self.filename = filename
+        self.path = path
+        self.filename = Path(path).name
         try:
-            with open(filename) as fp:
+            with open(self.path) as fp:
                 self.dockerfile_content = self.normalize_content(fp.read())
                 if len(self.dockerfile_content) == 0:
                     raise EmptyFileError
-        except IsADirectoryError:
-            logger.error(f"{filename} is a directory, expected a file.")
-            raise NotDockerfileError
-        except FileNotFoundError:
-            logger.error(f"{filename} does not exist.")
-            raise NotDockerfileError
-        try:
             tree = grammar.parse(self.dockerfile_content)
-        except IncompleteParseError:
-            logger.error(f"Failed to parse file: {filename}")
-            raise NotDockerfileError
-        try:
             visitor = DockerfileVisitor(self)
+        except (FileNotFoundError, IsADirectoryError) as error:
+            logger.error(f"{self.path} does not exist or it is not a file.\n{error}")
+            raise NotDockerfileError
+        except IncompleteParseError:
+            logger.error(f"Failed to parse file: {self.path}")
+            raise NotDockerfileError
         except VisitationError:
-            logger.error(f"Error encountered while trying to visit the tree of instructions for: {filename}")
+            logger.error(f"Error encountered while trying to visit the tree of instructions for: {self.path}")
             raise NotDockerfileError
         # This populates all the directives
         visitor.visit(tree)
 
     def get_filename(self):
-        return os.path.basename(self.filename)
+        return self.filename
+
+    def get_path(self):
+        return self.path
 
     def add_directive(self, directive):
         self.directives.append(directive)

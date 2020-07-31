@@ -19,19 +19,18 @@ class DockerfilePolicy(object):
                 test_results.append(test_rule_result)
         if len(test_results) > 0:
             return {'failed-tests': test_results, 'audit-outcome': 'fail', 'filename': dockerfile_object.get_filename(),
-                    'maintainers': dockerfile_object.get_maintainers()}
+                    'maintainers': dockerfile_object.get_maintainers(), 'path': dockerfile_object.get_path()}
         else:
             return {'audit-outcome': 'pass', 'filename': dockerfile_object.get_filename(),
-                    'maintainers': dockerfile_object.get_maintainers()}
+                    'maintainers': dockerfile_object.get_maintainers(), 'path': dockerfile_object.get_path()}
 
     def init_rules(self):
         try:
             with open(self.policy_file) as file:
-                try:
-                    policy_rules = yaml.safe_load(file)
-                except yaml.YAMLError:
-                    logger.error(f"Failed to parse {self.policy_file}: not a valid yaml file.")
-                    raise TypeError
+                policy_rules = yaml.safe_load(file)
+        except yaml.YAMLError:
+            logger.error(f"Failed to parse {self.policy_file}: not a valid yaml file.")
+            raise TypeError
         except FileNotFoundError:
             logger.error(f"Policy file {self.policy_file} does not exist.")
             raise FileNotFoundError
