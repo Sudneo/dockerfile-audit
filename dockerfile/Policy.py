@@ -1,6 +1,8 @@
 import yaml
 from .PolicyRule import *
 
+logger = logging.getLogger(__name__)
+
 
 class DockerfilePolicy(object):
 
