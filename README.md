@@ -42,23 +42,25 @@ cd dockerfile-audit
 pip install -r requirements.txt
 ```
 
-If you want to generate reports you need to also have `pdflatex` installed.
+If you want to generate pdf reports you need to also have `pdflatex` installed.
 
 ```bash
 $ python dockerfile-audit.py -h
-usage: dockerfile-audit.py [-h] [-p POLICY] (-d DOCKERFILE | -b BATCH) [-j]
-                           [-r] [-n REPORT_NAME] [-t REPORT_TEMPLATE] [-v]
+usage: dockerfile-audit.py [-h] [-p POLICY] -d DOCKERFILE [-j] [-r]
+                           [-o JSON_OUTFILE] [-n REPORT_NAME]
+                           [-t REPORT_TEMPLATE] [-v]
 
 optional arguments:
   -h, --help            show this help message and exit
   -p POLICY, --policy POLICY
                         The dockerfile policy to use for the audit.
   -d DOCKERFILE, --dockerfile DOCKERFILE
-                        The Dockerfile to audit.
-  -b BATCH, --batch BATCH
-                        A directory in which all files will be audited.
+                        The Dockerfile to audit. Can be both a file or a
+                        directory.
   -j, --json            Generate a JSON file with the findings.
   -r, --report          Generate a PDF report about the findings.
+  -o JSON_OUTFILE, --json-outfile JSON_OUTFILE
+                        Name of the JSON file.
   -n REPORT_NAME, --report-name REPORT_NAME
                         The name of the PDF report.
   -t REPORT_TEMPLATE, --report-template REPORT_TEMPLATE
@@ -78,7 +80,7 @@ python dockerfile-audit.py -d Dockerfile -r
 To scan a directory in which every file is a Dockerfile (with its own name):
 
 ```bash
-python dockerfile-audit.py -b /tmp/dockerfiles -r
+python dockerfile-audit.py -d /tmp/dockerfiles -r
 ```
 
 An example of the report can be found in the `docs` folder. 

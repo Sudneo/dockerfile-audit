@@ -10,8 +10,8 @@ from report import report
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--policy", default="policy.yaml", help="The dockerfile policy to use for the audit.")
-    parser.add_argument("-d", "--dockerfile", type=str, help="The Dockerfile to audit."
-                                                             " Can be both a file or a directory.")
+    parser.add_argument("-d", "--dockerfile", type=str, required=True, help="The Dockerfile to audit."
+                                                                            " Can be both a file or a directory.")
     parser.add_argument("-j", "--json", action='store_true', help="Generate a JSON file with the findings.")
     parser.add_argument("-r", "--report", action='store_true', help="Generate a PDF report about the findings.")
     parser.add_argument("-o", "--json-outfile", default="dockerfile-audit.json", help="Name of the JSON file.")
