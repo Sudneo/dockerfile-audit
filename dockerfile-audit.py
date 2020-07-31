@@ -36,7 +36,6 @@ def main():
     except (FileNotFoundError, TypeError) as error:
         logger.error(error)
         exit(1)
-    files_to_scan = list()
     auditor = Auditor.DockerfileAuditor(policy)
     if os.path.isfile(arguments.dockerfile):
         try:
