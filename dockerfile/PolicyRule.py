@@ -28,7 +28,7 @@ class PolicyFailedTestResult:
             self.results.append({'details': details, 'mitigations': mitigations, 'statement': statement,
                                  'type': rule_type.name})
         except AttributeError:
-            print(rule_type)
+            logger.error(rule_type)
 
     def get_result(self):
         if len(self.results) > 0:
