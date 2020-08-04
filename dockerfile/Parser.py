@@ -10,13 +10,13 @@ grammar = Grammar(
                              maintainer_command / add_command / copy_command / env_command / cmd_command / 
                              entrypoint_command / workdir_command / volume_command / shell_command / 
                              stopsignal_command / arg_command / healthcheck_command / ws)*
-    healthcheck_command   = healthcheck space+ ( healthcheck_options cmd_command ) 
-    from_command          = from space+ (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
-    user_command          = user space+ (user_name / user_id) ws
+    healthcheck_command   = healthcheck space ( healthcheck_options cmd_command ) 
+    from_command          = from space (platform)? registry? image_name (image_tag / digest)? (local_name)? ws
+    user_command          = user space (user_name / user_id) ws
     run_command           = run (quoted_list / line_statement) ws
-    label_command         = label space+ labels ws
-    expose_command        = expose space+ ports ws
-    maintainer_command    = maintainer maintainer_name (space* "," space* maintainer_name)* ws
+    label_command         = label space labels ws
+    expose_command        = expose space ports ws
+    maintainer_command    = maintainer maintainer_name (space* "," space maintainer_name)* ws
     add_command           = add space+ (chown space)? ( quoted_list_min_l / line_statement ) ws
     copy_command          = copy space+ (chown space)? ( quoted_list_min_l / line_statement ) ws
     env_command           = env space+ ( spaced_key_value / env_key_value ) ws
