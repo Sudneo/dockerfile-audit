@@ -46,19 +46,24 @@ If you want to generate reports you need to also have `pdflatex` installed.
 
 ```bash
 $ python dockerfile-audit.py -h
-usage: dockerfile-audit.py [-h] [-p POLICY] (-d DOCKERFILE | -b BATCH) [-j]
-                           [-r] [-n REPORT_NAME] [-t REPORT_TEMPLATE] [-v]
+usage: dockerfile-audit.py [-h] [-p POLICY] [-d DOCKERFILE] [--parse-only]
+                           [-j] [-r] [-o JSON_OUTFILE] [-n REPORT_NAME]
+                           [-t REPORT_TEMPLATE] [-v]
 
 optional arguments:
   -h, --help            show this help message and exit
   -p POLICY, --policy POLICY
                         The dockerfile policy to use for the audit.
   -d DOCKERFILE, --dockerfile DOCKERFILE
-                        The Dockerfile to audit.
-  -b BATCH, --batch BATCH
-                        A directory in which all files will be audited.
+                        The Dockerfile to audit. Can be both a file or a
+                        directory.
+  --parse-only          Simply Parse the Dockerfile(s) and return the content,
+                        without applying any policy. Only JSON report is
+                        supported for this.
   -j, --json            Generate a JSON file with the findings.
   -r, --report          Generate a PDF report about the findings.
+  -o JSON_OUTFILE, --json-outfile JSON_OUTFILE
+                        Name of the JSON file.
   -n REPORT_NAME, --report-name REPORT_NAME
                         The name of the PDF report.
   -t REPORT_TEMPLATE, --report-template REPORT_TEMPLATE
@@ -154,6 +159,8 @@ Preprocessing does the following actions:
 * Replaces line continuations (\ \n) with simple space
 * Replaces multiple spaces with a single space
 * Removes new lines at the beginning of the file
+* Removes trailing/leading spaces and newlines
+* Resolve Environmental variables. Note: At the moment only the "ENV key value" format is supported.
 
 ### Roadmaps
 
@@ -190,14 +197,14 @@ Preprocessing does the following actions:
 
 #### General Improvements
 
-- [ ] Parsing in stages could lead to better results. For example, first parse all ENV variables, replace
+- [X] Parsing in stages could lead to better results. For example, first parse all ENV variables, replace
 the value of the declared variables everywhere, and then proceed with parsing.
 - [X] RUN/CMD/ENTRYPOINTS command are harder to parse. If a package is installed and then removed, the search will
 find 2 matches, while the package is correctly removed. Implementing RUN/CMD/ENTRYPOINT specific parsing might
 allow to find out if package is installed and then removed.
 - [X] Use shlex for better RUN parsing
 - [X] Allow --json format in alternative to report to produce simply a json of the result
-- [ ] Allow --parse format in alternative to report to simply return the parsed Dockerfile
+- [X] Allow --parse format in alternative to report to simply return the parsed Dockerfile
 - [X] Optimize Grammar, remove duplicate terminals and reduce the number of rules.
 - [X] Implement comments parsing between RUN multiline commands.
 - [X] Review RUN command parsing
@@ -205,8 +212,8 @@ allow to find out if package is installed and then removed.
 - [X] LABEL sometimes breaks
 - [ ] COPY --from options
 - [X] FIX EXPOSE command
-- [ ] EXPOSE command, when used with $VARIABLE doesn't support `/protocol` syntax
+- [X] EXPOSE command, when used with $VARIABLE doesn't support `/protocol` syntax
 
 #### Eventual Features:
 
-- [ ] Support $( ) arguments to commands (e.g., USER $(user:-user))
+- [X] Support $( ) arguments to commands (e.g., USER $(user:-user))
