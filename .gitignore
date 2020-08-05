@@ -127,3 +127,13 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+.idea/*
+test/*
+dockerfile-audit.json
+report.pdf
+.build/*
+templates/template.aux
+templates/template.pdf
+templates/template.synctex.gz
+templates/template.tex
