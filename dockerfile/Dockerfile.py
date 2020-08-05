@@ -1,6 +1,4 @@
-import re
 import logging
-import os
 from .Directives import DockerfileDirectiveType
 from .Parser import grammar
 from .Parser import DockerfileVisitor
@@ -97,24 +95,8 @@ class Dockerfile:
 
     @staticmethod
     def normalize_content(dockerfile_content):
-        pre = preprocessor.DockerfilePreprocessor(dockerfile_content)
-        # Remove comments
-        comments = re.compile('#.*\n')
-        normalized_content = comments.sub('', dockerfile_content)
-        # Flatten lines
-        line_continuation = re.compile('[\\\\][\n]+')
-        normalized_content = line_continuation.sub(' ', normalized_content)
-        spaces = re.compile('[ ]{2,}')
-        normalized_content = spaces.sub(' ', normalized_content)
-        empty_lines = re.compile('[\n]{2,}')
-        normalized_content = empty_lines.sub('\n', normalized_content)
-        lines_with_spaces = re.compile('\n[ ]+')
-        normalized_content = lines_with_spaces.sub('\n', normalized_content)
-        ending_whitespaces = re.compile('[ ]+\n')
-        normalized_content = ending_whitespaces.sub('\n', normalized_content)
-        normalized_content = normalized_content.lstrip('\n')
-        normalized_content = normalized_content.lstrip(' ')
-        return normalized_content
+        dockerfile_preprocessor = preprocessor.DockerfilePreprocessor(dockerfile_content)
+        return dockerfile_preprocessor.get_normalized_content()
 
     def get_maintainers(self):
         labels_dir = [d.get() for d in self.directives if d.get()['type'] == str(DockerfileDirectiveType.LABEL)]

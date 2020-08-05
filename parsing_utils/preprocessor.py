@@ -1,11 +1,17 @@
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 
 class DockerfilePreprocessor:
 
     def __init__(self, dockerfile_content):
         self.content = dockerfile_content
+
+    def get_normalized_content(self):
         self.__normalize()
+        return self.content
 
     def __normalize(self):
         self.__flatten_lines()
@@ -16,7 +22,16 @@ class DockerfilePreprocessor:
         self.__removes_leading_spaces()
         self.__removes_trailing_spaces()
         envs = self.__get_env_basic()
-        envs = self.__get_env_keyvalue()
+        self.__resolve_envs(envs)
+
+    def __resolve_envs(self, envs):
+        for key, value in envs.items():
+            env_names = [f"[$]{key}", f"[$]{{{key}(-[\\S]+)?}}"]
+            for pattern in env_names:
+                regex = re.compile(pattern)
+                if regex.search(self.content):
+                    logger.debug(f"Resolving env variable {key} with value {value}.")
+                self.content = regex.sub(value, self.content)
 
     def __remove_comments(self):
         comments = re.compile('#.*\n')
@@ -48,27 +63,23 @@ class DockerfilePreprocessor:
 
     def __get_env_basic(self):
         envs = dict()
-        assignment = re.compile('(env|ENV) (?P<key>["\'"\\S]+) (?P<value>[\'"\\S]+)')
+        assignment = re.compile('(env|ENV) (?P<key>["\'\\S]+) (?P<value>[\'"\\S]+)')
         matches = assignment.findall(self.content)
         for match in matches:
             _, key, value = match
             envs[key] = value
         return envs
 
-    def __get_env_keyvalue(self):
-        envs = dict()
-        dockerfile_lines = self.content.split('\n')
-        env_match = re.compile('^(env|ENV) .*')
-        backslash_space = re.compile('\\ ')
-        line_with_keyvalues = re.compile('(env|ENV) (([ ]?(?P<key>[^=\\s\'\"]+|\"[^=]+\"|\'[^=]\')=(?P<value>[^=\\s\'\"]+|\"[^=]+\"|\'[^=]\'))+)')
-        for line in dockerfile_lines:
-            if env_match.match(line):
-                backslash_space.sub('#', line)
-                if line_with_keyvalues.match(line):
-                    match = line_with_keyvalues.search(line)
-                    gps = match.groups()
-                    gps_dict = match.groupdict()
-                    print(f"match: {line}")
-        assignment = re.compile('(env|ENV) ((?P<key>[\\ \'"\\S]+)=(?P<value>[\\ \'"\\S]+))+')
+    # def __get_env_keyvalue(self):
+    #     dockerfile_lines = self.content.split('\n')
+    #     env_match = re.compile('^(env|ENV) .*')
+    #     backslash_space = re.compile('\\ ')
+    #     line_with_keyvalues = re.compile('(env|ENV) (([ ]?(?P<key>[^=\\s\'\"]+|\"[^=]+\"|\'[^=]\')=(?P<value>[^=\\s\'
+    #                                      '\"]+|\"[^=]+\"|\'[^=]\'))+)')
+    #     for line in dockerfile_lines:
+    #         if env_match.match(line):
+    #             backslash_space.sub('#', line)
+    #             if line_with_keyvalues.match(line):
+    #                 print(f"match: {line}")
 
 
