@@ -46,13 +46,8 @@ If you want to generate pdf reports you need to also have `pdflatex` installed.
 
 ```bash
 $ python dockerfile-audit.py -h
-<<<<<<< HEAD
 usage: dockerfile-audit.py [-h] [-p POLICY] [-d DOCKERFILE] [--parse-only]
                            [-j] [-r] [-o JSON_OUTFILE] [-n REPORT_NAME]
-=======
-usage: dockerfile-audit.py [-h] [-p POLICY] -d DOCKERFILE [-j] [-r]
-                           [-o JSON_OUTFILE] [-n REPORT_NAME]
->>>>>>> master
                            [-t REPORT_TEMPLATE] [-v]
 
 optional arguments:
@@ -62,12 +57,9 @@ optional arguments:
   -d DOCKERFILE, --dockerfile DOCKERFILE
                         The Dockerfile to audit. Can be both a file or a
                         directory.
-<<<<<<< HEAD
   --parse-only          Simply Parse the Dockerfile(s) and return the content,
                         without applying any policy. Only JSON report is
                         supported for this.
-=======
->>>>>>> master
   -j, --json            Generate a JSON file with the findings.
   -r, --report          Generate a PDF report about the findings.
   -o JSON_OUTFILE, --json-outfile JSON_OUTFILE
