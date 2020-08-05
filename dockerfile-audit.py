@@ -10,8 +10,8 @@ from report import report
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--policy", default="policy.yaml", help="The dockerfile policy to use for the audit.")
-    parser.add_argument("-d", "--dockerfile", type=str, help="The Dockerfile to audit."
-                                                             " Can be both a file or a directory.")
+    parser.add_argument("-d", "--dockerfile", type=str, required=True, help="The Dockerfile to audit."
+                                                                            " Can be both a file or a directory.")
     parser.add_argument("--parse-only", action='store_true', help="Simply Parse the Dockerfile(s) and return the"
                                                                   " content, without applying any policy. Only JSON "
                                                                   "report is supported for this.")
