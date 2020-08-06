@@ -29,7 +29,7 @@ class Dockerfile:
         self.path = path
         self.filename = Path(path).name
         try:
-            with open(self.path) as fp:
+            with open(self.path, encoding='utf-8') as fp:
                 self.dockerfile_content = self.normalize_content(fp.read())
                 if len(self.dockerfile_content) == 0:
                     raise EmptyFileError

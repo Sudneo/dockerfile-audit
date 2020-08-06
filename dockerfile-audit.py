@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os
 import argparse
 import logging
@@ -74,9 +75,12 @@ def main():
     files_to_process = __get_files_to_process(arguments.dockerfile)
     if arguments.parse_only:
         parsed_dockerfiles = __parse(files_to_process)
-        if arguments.json:
-            with open(arguments.json_outfile, "w") as fp:
-                json.dump(parsed_dockerfiles, indent=2, sort_keys=True, fp=fp)
+        if len(parsed_dockerfiles) == 0:
+            logger.warning("No files were processed, reports will be skipped.")
+        else:
+            if arguments.json:
+                with open(arguments.json_outfile, "w") as fp:
+                    json.dump(parsed_dockerfiles, indent=2, sort_keys=True, fp=fp)
     else:
         policy = __get_policy()
         policy_results = __audit(files_to_process, policy)
