@@ -23,6 +23,8 @@ class DockerfilePreprocessor:
         self.__removes_trailing_spaces()
         envs = self.__get_env_basic()
         self.__resolve_envs(envs)
+        envs = self.__get_env_keyvalue()
+        self.__resolve_envs(envs)
 
     def __resolve_envs(self, envs):
         for key, value in envs.items():
@@ -70,16 +72,41 @@ class DockerfilePreprocessor:
             envs[key] = value
         return envs
 
-    # def __get_env_keyvalue(self):
-    #     dockerfile_lines = self.content.split('\n')
-    #     env_match = re.compile('^(env|ENV) .*')
-    #     backslash_space = re.compile('\\ ')
-    #     line_with_keyvalues = re.compile('(env|ENV) (([ ]?(?P<key>[^=\\s\'\"]+|\"[^=]+\"|\'[^=]\')=(?P<value>[^=\\s\'
-    #                                      '\"]+|\"[^=]+\"|\'[^=]\'))+)')
-    #     for line in dockerfile_lines:
-    #         if env_match.match(line):
-    #             backslash_space.sub('#', line)
-    #             if line_with_keyvalues.match(line):
-    #                 print(f"match: {line}")
+    @staticmethod
+    def __replace_spaces_in_quotes(line):
+        inside = False
+        index = 0
+        while index < len(line):
+            if not inside and (line[index] == "'" or line[index] == '"'):
+                inside = True
+            elif inside and line[index] == " ":
+                line = line[:index] + "#" + line[index + 1:]
+            elif inside and (line[index] == "'" or line[index] == '"'):
+                inside = False
+            index += 1
+        return line
+
+    def __get_env_keyvalue(self):
+        variables = dict()
+        dockerfile_lines = self.content.split('\n')
+        env_match = re.compile('^(env|ENV) .*')
+        line_with_keyvalues = re.compile('(env|ENV) ((([^=\\s]+|(\"|\')[^\'\"=]+(\"|\'))=([^=\\s\"\']+|(\"|\')'
+                                         '[^=\"\']+(\"|\')[ ]*))+)')
+        for line in dockerfile_lines:
+            if env_match.match(line):
+                if line_with_keyvalues.match(line):
+                    logger.debug(f"Key value ENV match: {line}")
+                    line = re.sub('\\\\ ', '#', line)
+                    line = self.__replace_spaces_in_quotes(line)
+                    envs = line.split(" ")[1:]
+                    for env in envs:
+                        variables[env.split("=")[0]] = env.split("=")[1].replace("\"", "").\
+                            replace("'", "").\
+                            replace("#", " ")
+        return variables
+
+
+
+
 
 
