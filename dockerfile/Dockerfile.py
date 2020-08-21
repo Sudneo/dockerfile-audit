@@ -35,6 +35,7 @@ class Dockerfile:
                     raise EmptyFileError
             tree = grammar.parse(self.dockerfile_content)
             visitor = DockerfileVisitor(self)
+            visitor.visit(tree)
         except (FileNotFoundError, IsADirectoryError) as error:
             logger.error(f"{self.path} does not exist or it is not a file.\n{error}")
             raise NotDockerfileError
@@ -44,8 +45,6 @@ class Dockerfile:
         except VisitationError:
             logger.error(f"Error encountered while trying to visit the tree of instructions for: {self.path}")
             raise NotDockerfileError
-        # This populates all the directives
-        visitor.visit(tree)
 
     def get_filename(self):
         return self.filename
